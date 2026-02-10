@@ -49,7 +49,11 @@ export const config = {
     fileDir: process.env.TAPTAP_LOG_FILE_DIR,
   },
   cronSecret: required("TAPTAP_CRON_SECRET"),
-  cors: { origins: required("TAPTAP_CORS_ORIGINS").split(",") },
+  cors: {
+    origins: required("TAPTAP_CORS_ORIGINS")
+      .split(",")
+      .map((o) => o.trim()),
+  },
   email: {
     provider: emailProvider,
     from: {
@@ -58,13 +62,15 @@ export const config = {
     },
     smtp: {
       host: emailProvider === "smtp" ? required("TAPTAP_SMTP_HOST") : "",
-      port: emailProvider === "smtp" ? optionalInt("TAPTAP_SMTP_PORT", 587) : 587,
+      port:
+        emailProvider === "smtp" ? optionalInt("TAPTAP_SMTP_PORT", 587) : 587,
       secure:
         emailProvider === "smtp"
           ? optional("TAPTAP_SMTP_SECURE", "false") === "true"
           : false,
       user: emailProvider === "smtp" ? required("TAPTAP_SMTP_USER") : "",
-      password: emailProvider === "smtp" ? required("TAPTAP_SMTP_PASSWORD") : "",
+      password:
+        emailProvider === "smtp" ? required("TAPTAP_SMTP_PASSWORD") : "",
     },
   },
   queue: {
