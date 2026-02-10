@@ -1,6 +1,15 @@
 # CLAUDE.md
 
-**NO QUICK FIXES**: Quick fixes and workarounds are banned in this project. Always fix the root cause properly.
+**NEVER DEPLOY WITHOUT EXPLICIT USER INSTRUCTION**: Deployments to production are STRICTLY FORBIDDEN unless the user explicitly says to deploy. This is a live system with active users. No exceptions — never run deploy scripts, push to production, or trigger any deployment pipeline without a direct, explicit instruction from the user.
+
+**sed USAGE**
+
+NEVER USE sed TO BULK REPLACE
+NEVER USE sed TO BULK REPLACE
+NEVER USE sed TO BULK REPLACE
+NEVER USE sed TO BULK REPLACE
+
+**NO QUICK FIXES**: Quick fixes and workarounds are banned in this project. Always fix the root cause properly. If a deploy script uploads to the wrong location, fix the deploy script - don't manually sync files.
 
 **NEVER SSH INTO PRODUCTION**: Do not SSH into production servers unless the user explicitly asks you to. Production access requires explicit user authorization for each session.
 
@@ -29,6 +38,25 @@ This file provides guidance to Claude Code when working with the TapTap notifica
 - Always create a new branch before making changes (e.g., `feature/add-template`, `fix/queue-retry`)
 - Push the feature branch and create a pull request
 - Only merge to main after user approval
+
+### NEVER COMMIT WITHOUT ALL TESTS PASSING
+
+**CRITICAL**: ALL tests must pass in BOTH local mode AND Docker Compose mode before committing.
+
+- Run `./scripts/test-integration.sh local` and verify all tests pass
+- Run `./scripts/test-integration.sh compose` and verify all tests pass in Docker
+- If Docker Compose tests fail due to schema changes, rebuild Docker images first: `./scripts/docker-build.sh`
+- No exceptions - if tests fail, fix them before committing
+
+### NEVER BLAME "PRE-EXISTING FAILURES"
+
+**CRITICAL**: The excuse "these are pre-existing failures" is NEVER acceptable.
+
+- If tests fail, they must be fixed - period
+- If you introduced code that breaks tests, fix your code
+- If tests were already broken before your changes, fix those tests too
+- The codebase must always be in a clean, passing state
+- "It was already broken" is not a valid excuse for leaving things broken
 
 ### FINISH DISCUSSIONS BEFORE WRITING CODE
 
@@ -204,6 +232,14 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 ./scripts/test-integration.sh compose  # Run tests against Docker Compose
 ```
 
+### Monitoring Long-Running Operations
+
+When running background operations like deploys, builds, or tests:
+
+- **Check output at most every 30 seconds** - Do not poll in a tight loop
+- **Be patient with slow operations** - Docker builds and deploys take time
+- **Report progress periodically** - Let the user know when operations complete
+
 ### Database Commands
 
 ```bash
@@ -283,7 +319,7 @@ These directories are excluded from git and used for temporary data:
 - **Email Templates**: Registered via `registerEmailTemplate` mutation, stored in `email_template` table. Support `{{variable}}` substitution in subject, bodyHtml, bodyText.
 - **Email Queue**: `email_queue` table with status tracking (pending, sending, sent, failed). Processed by external cron calling `POST /internal/cron/process-queue`.
 - **Throttle**: Shared `throttle` table with `channel` column. Prevents duplicate sends for same (channel, category, recipient, context) within a time window.
-- **Providers**: `EmailProvider` interface with console (development) and SMTP (production) implementations. Selected via `EMAIL_PROVIDER` env var.
+- **Providers**: `EmailProvider` interface with console (development) and SMTP (production) implementations. Selected via `TAPTAP_EMAIL_PROVIDER` env var.
 
 ### Repository Pattern
 
@@ -323,20 +359,20 @@ See `.env.example` for complete list. Key variables:
 
 ### Security
 
-- `CRON_SECRET` - Bearer token for internal cron endpoints (REQUIRED)
+- `TAPTAP_CRON_SECRET` - Bearer token for internal cron endpoints (REQUIRED)
 - `TAPTAP_CORS_ORIGINS` - Comma-separated allowed origins (REQUIRED)
 
 ### Email
 
-- `EMAIL_PROVIDER` - `console` or `smtp` (default: console)
-- `EMAIL_FROM_ADDRESS` - From address for outgoing emails (REQUIRED)
-- `EMAIL_FROM_NAME` - From name for outgoing emails (REQUIRED)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` - SMTP settings (required when provider is smtp)
+- `TAPTAP_EMAIL_PROVIDER` - `console` or `smtp` (default: console)
+- `TAPTAP_EMAIL_FROM_ADDRESS` - From address for outgoing emails (REQUIRED)
+- `TAPTAP_EMAIL_FROM_NAME` - From name for outgoing emails (REQUIRED)
+- `TAPTAP_SMTP_HOST`, `TAPTAP_SMTP_PORT`, `TAPTAP_SMTP_SECURE`, `TAPTAP_SMTP_USER`, `TAPTAP_SMTP_PASSWORD` - SMTP settings (required when provider is smtp)
 
 ### Queue
 
-- `QUEUE_BATCH_SIZE` - Batch size per cycle (default: 10)
-- `QUEUE_MAX_ATTEMPTS` - Max retry attempts (default: 3)
+- `TAPTAP_QUEUE_BATCH_SIZE` - Batch size per cycle (default: 10)
+- `TAPTAP_QUEUE_MAX_ATTEMPTS` - Max retry attempts (default: 3)
 
 ### Logging
 
@@ -402,6 +438,6 @@ export function findPending(db: SQLiteDatabase, limit: number): EmailQueueItem[]
 
 ### Test Infrastructure
 
-- Tests run against a local test server (port 5010) or an external Docker container
+- Tests run against a local test server (port 5016) or an external Docker container
 - `truncateAllTables()` clears all tables between tests
 - `TEST_URL` and `TEST_DB_PATH` env vars for external mode (Docker Compose)

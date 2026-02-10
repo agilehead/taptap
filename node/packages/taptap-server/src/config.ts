@@ -1,3 +1,8 @@
+import { join } from "path";
+import { config as dotenvConfig } from "dotenv";
+
+dotenvConfig();
+
 function required(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
@@ -20,44 +25,51 @@ function optionalInt(name: string, defaultValue: number): number {
 }
 
 const isProduction = process.env.NODE_ENV === "production";
-const emailProvider = optional("EMAIL_PROVIDER", "console") as
+const isTest = process.env.NODE_ENV === "test";
+const emailProvider = optional("TAPTAP_EMAIL_PROVIDER", "console") as
   | "console"
   | "smtp";
 
+const dataDir = required("TAPTAP_DATA_DIR");
+
 export const config = {
   isProduction,
+  isTest,
   nodeEnv: optional("NODE_ENV", "development"),
   server: {
     host: required("TAPTAP_SERVER_HOST"),
     port: optionalInt("TAPTAP_SERVER_PORT", 5006),
   },
-  data: { dir: required("TAPTAP_DATA_DIR") },
+  db: {
+    dataDir,
+    dbPath: join(dataDir, "taptap.db"),
+  },
   logging: {
     level: optional("LOG_LEVEL", "info"),
     fileDir: process.env.TAPTAP_LOG_FILE_DIR,
   },
-  cronSecret: required("CRON_SECRET"),
+  cronSecret: required("TAPTAP_CRON_SECRET"),
   cors: { origins: required("TAPTAP_CORS_ORIGINS").split(",") },
   email: {
     provider: emailProvider,
     from: {
-      email: required("EMAIL_FROM_ADDRESS"),
-      name: required("EMAIL_FROM_NAME"),
+      email: required("TAPTAP_EMAIL_FROM_ADDRESS"),
+      name: required("TAPTAP_EMAIL_FROM_NAME"),
     },
     smtp: {
-      host: emailProvider === "smtp" ? required("SMTP_HOST") : "",
-      port: emailProvider === "smtp" ? optionalInt("SMTP_PORT", 587) : 587,
+      host: emailProvider === "smtp" ? required("TAPTAP_SMTP_HOST") : "",
+      port: emailProvider === "smtp" ? optionalInt("TAPTAP_SMTP_PORT", 587) : 587,
       secure:
         emailProvider === "smtp"
-          ? optional("SMTP_SECURE", "false") === "true"
+          ? optional("TAPTAP_SMTP_SECURE", "false") === "true"
           : false,
-      user: emailProvider === "smtp" ? required("SMTP_USER") : "",
-      password: emailProvider === "smtp" ? required("SMTP_PASSWORD") : "",
+      user: emailProvider === "smtp" ? required("TAPTAP_SMTP_USER") : "",
+      password: emailProvider === "smtp" ? required("TAPTAP_SMTP_PASSWORD") : "",
     },
   },
   queue: {
-    batchSize: optionalInt("QUEUE_BATCH_SIZE", 10),
-    maxAttempts: optionalInt("QUEUE_MAX_ATTEMPTS", 3),
+    batchSize: optionalInt("TAPTAP_QUEUE_BATCH_SIZE", 10),
+    maxAttempts: optionalInt("TAPTAP_QUEUE_MAX_ATTEMPTS", 3),
   },
 };
 

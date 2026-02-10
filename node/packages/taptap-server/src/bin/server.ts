@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * TapTap Server Entry Point
+ *
+ * Template-based email notification service
+ */
+
 import express from "express";
 import cors from "cors";
 import { ApolloServer } from "@apollo/server";
@@ -6,9 +12,6 @@ import { expressMiddleware } from "@as-integrations/express5";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { config as dotenvConfig } from "dotenv";
-
-dotenvConfig();
 
 import { config } from "../config.js";
 import { createLogger } from "@agilehead/taptap-logger";
@@ -30,15 +33,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function startServer(): Promise<void> {
   try {
-    const dbPath = join(config.data.dir, "taptap.db");
-    logger.info(`Initializing database at ${dbPath}...`);
-    const db = initSQLiteDatabase(dbPath);
+    logger.info("Starting TapTap server", {
+      nodeEnv: config.nodeEnv,
+      host: config.server.host,
+      port: config.server.port,
+      emailProvider: config.email.provider,
+    });
+
+    logger.info("Initializing database", { dbPath: config.db.dbPath });
+    const db = initSQLiteDatabase(config.db.dbPath);
 
     const queueRepo = createEmailQueueRepository(db);
     const throttleRepo = createThrottleRepository(db);
     const templateRepo = createEmailTemplateRepository(db);
 
-    logger.info(`Initializing email provider (${config.email.provider})...`);
+    logger.info("Initializing email provider", { provider: config.email.provider });
     let emailProvider: EmailProvider;
     if (config.email.provider === "smtp") {
       emailProvider = createSmtpEmailProvider({
@@ -51,13 +60,11 @@ async function startServer(): Promise<void> {
     } else {
       emailProvider = createConsoleEmailProvider();
     }
-    logger.info(`Email provider initialized: ${emailProvider.name}`);
+    logger.info("Email provider initialized", { name: emailProvider.name });
 
-    logger.info("Loading GraphQL schema...");
     const schemaPath = join(__dirname, "../schema.graphql");
     const typeDefs = readFileSync(schemaPath, "utf-8");
 
-    logger.info("Creating Apollo Server...");
     const server = new ApolloServer<Context>({
       typeDefs,
       resolvers,
@@ -83,11 +90,7 @@ async function startServer(): Promise<void> {
     app.use(express.json({ limit: "1mb" }));
 
     app.get("/health", (_req, res) => {
-      res.json({
-        status: "healthy",
-        service: "taptap",
-        timestamp: new Date().toISOString(),
-      });
+      res.json({ status: "ok" });
     });
 
     // Internal cron routes (process-queue, etc.)
@@ -113,10 +116,10 @@ async function startServer(): Promise<void> {
 
     const { host, port } = config.server;
     app.listen(port, host, () => {
-      logger.info(`TapTap server running at http://${host}:${String(port)}`);
-      logger.info(`GraphQL endpoint: http://${host}:${String(port)}/graphql`);
-      logger.info(`Health check: http://${host}:${String(port)}/health`);
-      logger.info(`Environment: ${config.nodeEnv}`);
+      logger.info("TapTap server started", {
+        url: `http://${host}:${String(port)}`,
+        graphql: `http://${host}:${String(port)}/graphql`,
+      });
     });
 
     const shutdown = (): void => {

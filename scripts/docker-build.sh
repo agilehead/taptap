@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Docker build script for TapTap
-# Usage: ./docker-build.sh [tag]
 # Builds two targets: taptap-migrations, taptap (production)
+# Usage: ./docker-build.sh [tag]
 
 set -e
 
@@ -16,37 +16,43 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+echo -e "${GREEN}Building TapTap Docker images...${NC}"
+
 # Get git commit hash for labeling
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-BUILD_ARGS="--build-arg GIT_COMMIT=${GIT_COMMIT} --build-arg BUILD_DATE=${BUILD_DATE}"
-LABELS="--label git.commit=${GIT_COMMIT} --label build.date=${BUILD_DATE}"
+build_image() {
+  local target="$1"
+  local image_name="$2"
 
-echo -e "${GREEN}Building TapTap Docker images...${NC}"
+  echo -e "${YELLOW}Building image: ${image_name}:${TAG} (target: ${target})${NC}"
+  docker build \
+    --target "${target}" \
+    --build-arg GIT_COMMIT="${GIT_COMMIT}" \
+    --build-arg BUILD_DATE="${BUILD_DATE}" \
+    --label "git.commit=${GIT_COMMIT}" \
+    --label "build.date=${BUILD_DATE}" \
+    -t "${image_name}:${TAG}" \
+    -t "${image_name}:${GIT_COMMIT}" \
+    .
+
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Successfully built ${image_name}:${TAG}${NC}"
+  else
+    echo -e "${RED}Failed to build ${image_name}:${TAG}${NC}"
+    exit 1
+  fi
+}
 
 # Build migrations image
-echo -e "${YELLOW}Building taptap-migrations:${TAG}...${NC}"
-docker build \
-  ${BUILD_ARGS} ${LABELS} \
-  --target migrations \
-  -t "taptap-migrations:${TAG}" \
-  -t "taptap-migrations:${GIT_COMMIT}" \
-  .
+build_image "migrations" "taptap-migrations"
 
-echo -e "${GREEN}Successfully built taptap-migrations:${TAG}${NC}"
-
-# Build production server image
-echo -e "${YELLOW}Building taptap:${TAG}...${NC}"
-docker build \
-  ${BUILD_ARGS} ${LABELS} \
-  --target production \
-  -t "taptap:${TAG}" \
-  -t "taptap:${GIT_COMMIT}" \
-  .
-
-echo -e "${GREEN}Successfully built taptap:${TAG}${NC}"
+# Build production image
+build_image "production" "taptap"
 
 # Show image info
 echo -e "\n${YELLOW}Image details:${NC}"
 docker images "taptap*" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | head -5
+
+echo -e "${GREEN}All images built successfully!${NC}"
