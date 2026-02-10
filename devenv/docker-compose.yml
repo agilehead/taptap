@@ -37,9 +37,9 @@ services:
       - TAPTAP_SERVER_PORT=5006
       - TAPTAP_DATA_DIR=/app/data/taptap/db
       - TAPTAP_LOG_FILE_DIR=/app/data/taptap/logs
-      - EMAIL_PROVIDER=console
-      - EMAIL_FROM_ADDRESS=noreply@example.com
-      - EMAIL_FROM_NAME=TapTap
+      - TAPTAP_EMAIL_PROVIDER=console
+      - TAPTAP_EMAIL_FROM_ADDRESS=noreply@example.com
+      - TAPTAP_EMAIL_FROM_NAME=TapTap
       - TAPTAP_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
     volumes:
       - ${TAPTAP_DATA_HOST_DIR:-./data/taptap/db}:/app/data/taptap/db

@@ -40,7 +40,7 @@ const externalTestUrl = process.env.TEST_URL;
 const externalDbPath = process.env.TEST_DB_PATH;
 
 // Port for local testing
-const TEST_PORT = 5010;
+const TEST_PORT = 5016;
 
 export async function setupTests(): Promise<void> {
   if (externalTestUrl !== undefined && externalTestUrl !== "") {

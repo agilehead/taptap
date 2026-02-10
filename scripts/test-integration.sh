@@ -92,19 +92,19 @@ TAPTAP_DATA_DIR=/app/data/taptap/db
 TAPTAP_LOG_FILE_DIR=/app/data/taptap/logs
 
 # Cron secret
-CRON_SECRET=test-cron-secret
+TAPTAP_CRON_SECRET=test-cron-secret
 
 # CORS
 TAPTAP_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
 # Email
-EMAIL_PROVIDER=console
-EMAIL_FROM_ADDRESS=noreply@test.com
-EMAIL_FROM_NAME=TapTap Test
+TAPTAP_EMAIL_PROVIDER=console
+TAPTAP_EMAIL_FROM_ADDRESS=noreply@test.com
+TAPTAP_EMAIL_FROM_NAME=TapTap Test
 
 # Queue
-QUEUE_BATCH_SIZE=10
-QUEUE_MAX_ATTEMPTS=3
+TAPTAP_QUEUE_BATCH_SIZE=10
+TAPTAP_QUEUE_MAX_ATTEMPTS=3
 
 # Logging
 LOG_LEVEL=info

@@ -19,9 +19,9 @@ fi
 echo "Stopping local Node.js processes..."
 pkill -f "node.*taptap" 2>/dev/null || true
 
-# Free up taptap port (5006) and test port (5010)
-echo "Freeing ports 5006, 5010..."
-for port in 5006 5010; do
+# Free up taptap port (5006) and test port (5016)
+echo "Freeing ports 5006, 5016..."
+for port in 5006 5016; do
   lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
 done
 
