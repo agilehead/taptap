@@ -1,0 +1,397 @@
+# CLAUDE.md
+
+**NO QUICK FIXES**: Quick fixes and workarounds are banned in this project. Always fix the root cause properly.
+
+**NEVER SSH INTO PRODUCTION**: Do not SSH into production servers unless the user explicitly asks you to. Production access requires explicit user authorization for each session.
+
+**NEVER USE FORCE PUSH OR DESTRUCTIVE GIT OPERATIONS**: `git push --force`, `git push --force-with-lease`, `git reset --hard`, `git clean -fd`, or any other destructive git operations are ABSOLUTELY FORBIDDEN. Use `git revert` to undo changes instead.
+
+This file provides guidance to Claude Code when working with the TapTap notification service.
+
+## Critical Guidelines
+
+### NEVER ACT WITHOUT EXPLICIT USER APPROVAL
+
+**YOU MUST ALWAYS ASK FOR PERMISSION BEFORE:**
+
+- Making architectural decisions or changes
+- Implementing new features or functionality
+- Modifying APIs, interfaces, or data structures
+- Changing expected behavior or test expectations
+- Adding new dependencies or patterns
+
+**ONLY make changes AFTER the user explicitly approves.** When you identify issues or potential improvements, explain them clearly and wait for the user's decision. Do NOT assume what the user wants or make "helpful" changes without permission.
+
+### NEVER COMMIT DIRECTLY TO MAIN
+
+**CRITICAL**: ALL changes must be made on a feature branch, never directly on main.
+
+- Always create a new branch before making changes (e.g., `feature/add-template`, `fix/queue-retry`)
+- Push the feature branch and create a pull request
+- Only merge to main after user approval
+
+### FINISH DISCUSSIONS BEFORE WRITING CODE
+
+**IMPORTANT**: When the user asks a question or you're in the middle of a discussion, DO NOT jump to writing code. Always:
+
+1. **Complete the discussion first** - Understand the problem fully
+2. **Analyze and explain** - Work through the issue verbally
+3. **Get confirmation** - Ensure the user agrees with the approach
+4. **Only then write code** - After the user explicitly asks you to implement
+
+## Session Startup & Task Management
+
+### First Steps When Starting a Session
+
+When you begin working on this project, you MUST:
+
+1. **Read this entire CLAUDE.md file** to understand the project structure and conventions
+2. **Check for ongoing tasks in `.todos/` directory** - Look for any in-progress task files
+3. **Read the key documentation files** in this order:
+   - `/README.md` - Project overview
+   - `/CODING-STANDARDS.md` - Mandatory coding patterns and conventions
+   - `.env.example` - Configuration options
+
+Only after reading these documents should you proceed with any implementation or analysis tasks.
+
+## Project Overview & Principles
+
+TapTap is a standalone notification service. It accepts notification requests via a GraphQL API, formats emails from templates, queues them in SQLite, and delivers them via SMTP with retry and throttle support.
+
+### Production System
+
+**IMPORTANT**: TapTap is designed for production deployments:
+
+- **Always use migrations** - All database schema changes MUST use the migration system
+- **Never modify initial schema** - The initial migration files are immutable; create new migrations for changes
+- **Backward compatibility matters** - Consider existing data when making schema changes
+- **All code should follow current best practices** - Maintain high quality standards
+- **No change tracking in comments** - Avoid "changed from X to Y" comments in code
+
+### Key Features
+
+- **GraphQL API**: Single `sendNotification` mutation with typed notification categories
+- **Email Queue**: SQLite-backed queue with batch processing and retry
+- **Email Templates**: 18 notification types with HTML and plain text templates
+- **Throttling**: Per-type rate limiting to prevent notification spam
+- **Email Providers**: Console (dev) and SMTP (production)
+
+### Documentation & Code Principles
+
+**Documentation Guidelines:**
+
+- Write as if the spec was designed from the beginning
+- Be concise and technical - avoid promotional language
+- Use active voice and include code examples
+- Keep README.md as single source of truth
+
+**Code Principles:**
+
+- **NO CLASSES** - Use functional style with strict types
+- **NO DYNAMIC IMPORTS** - Always use static imports
+- **PREFER FUNCTIONS** - Export functions from modules
+- **USE RESULT TYPES** - For error handling
+- **PREFER `type` over `interface`**
+- **NO EMOJIS** - Do not use emojis in code, logs, or comments
+
+### Environment Variables
+
+**CRITICAL**: NEVER use fallback defaults with `||` for required environment variables.
+
+```typescript
+// BAD - silent failure with default value
+const host = process.env.TAPTAP_SERVER_HOST || "127.0.0.1";
+
+// GOOD - fail fast if required var is missing
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    console.error(`ERROR: Required environment variable ${name} is not set`);
+    process.exit(1);
+  }
+  return value;
+}
+const host = required("TAPTAP_SERVER_HOST");
+```
+
+All environment variables must be validated at startup in `src/config.ts`. The application should fail immediately if required variables are missing.
+
+### Linting and Code Quality Standards
+
+**CRITICAL**: NEVER weaken linting, testing, or type-checking rules:
+
+- **NO eslint-disable comments** - Fix the actual issues instead of suppressing warnings
+- **NO test.skip or test.only in committed code** - All tests must run and pass
+- **NO @ts-expect-error or @ts-ignore** - Fix type errors properly
+- **NO relaxing TypeScript strict mode** - Maintain full type safety
+- **NO lowering code coverage thresholds** - Improve coverage instead
+- **NO weakening any quality gates** - Standards exist for a reason
+
+When you encounter linting, type, or test errors, the solution is ALWAYS to fix the underlying issue properly, never to suppress or bypass the error. Quality standards are non-negotiable.
+
+**PRE-EXISTING ERRORS**: If you encounter lint, type, or test errors that existed before your changes, you MUST fix them. Pre-existing errors are never an excuse - the codebase must always be in a clean state.
+
+## Key Technical Decisions
+
+### Security: Never Use npx
+
+**CRITICAL SECURITY REQUIREMENT**: NEVER use `npx` for any commands. This poses grave security risks.
+
+- **ALWAYS use exact dependency versions** in package.json
+- **ALWAYS use local node_modules binaries**
+- **NEVER use `npx`** - use local dependencies
+
+### Security: Never SSH as Root
+
+**CRITICAL**: NEVER SSH to production servers as root.
+
+- **ALWAYS use the application-specific user** (e.g., `taptapuser@taptap.example.com`)
+- **NEVER use `root@`** in any SSH commands, scripts, or configurations
+- Production uses rootless Docker - each app has its own isolated user and Docker daemon
+
+### Database Conventions
+
+- **SQLite** for development/initial deployment (via Tinqer)
+- **All SQL via Tinqer** - Never write raw SQL
+- **Repository Pattern** - Interfaces with SQLite implementation
+- **Singular table names**: lowercase (e.g., `email_queue`, `notification_throttle`)
+- **Column names**: snake_case for all columns
+- **UUIDs** for primary keys
+- **Hard deletes** with audit logging
+- **MIGRATION POLICY**: Use migration system for all schema changes
+
+### ESM Modules
+
+- **All imports MUST include `.js` extension**: `import { foo } from "./bar.js"`
+- **TypeScript configured for `"module": "NodeNext"`**
+- **Type: `"module"` in all package.json files**
+- **NO DYNAMIC IMPORTS**: Always use static imports
+
+### GraphQL Architecture
+
+- **Single schema file** (`src/schema.graphql`)
+- **Type generation** with graphql-codegen
+- **Context pattern** for database and services
+
+## Essential Commands & Workflow
+
+### Build & Development Commands
+
+```bash
+# Build entire project (from root)
+./scripts/build.sh              # Standard build with formatting
+./scripts/build.sh --no-format  # Skip prettier formatting (faster)
+
+# Clean build artifacts
+./scripts/clean.sh
+
+# Start server
+./scripts/start.sh
+
+# Lint entire project
+./scripts/lint-all.sh           # Run ESLint on all packages
+./scripts/lint-all.sh --fix     # Run ESLint with auto-fix
+
+# Format code with Prettier (MUST run before committing)
+./scripts/format-all.sh
+
+# Docker commands
+./scripts/docker-build.sh       # Build Docker image
+```
+
+### Database Commands
+
+```bash
+# Check migration status
+npm run migrate:status
+
+# Run migrations (ONLY when explicitly asked)
+npm run migrate:latest
+npm run migrate:rollback
+```
+
+### Testing Commands
+
+```bash
+# Run all tests
+npm test
+
+# Run specific tests
+npm run test:grep -- "pattern to match"
+```
+
+### Git Workflow
+
+**CRITICAL GIT SAFETY RULES**:
+
+1. **NEVER use `git push --force`**
+2. **ALL git push commands require EXPLICIT user authorization**
+3. **Use revert commits instead of force push**
+
+**NEW BRANCH REQUIREMENT**: ALL changes must be made on a new feature branch, never directly on main.
+
+When the user asks you to commit and push:
+
+1. Run `./scripts/build.sh` to build all packages (this also formats code)
+2. Run `./scripts/lint-all.sh` to ensure code passes linting
+3. Follow git commit guidelines
+4. Get explicit user confirmation before any `git push`
+
+### Pull Request Workflow
+
+**NEVER use `gh pr create` to create pull requests automatically.** Always provide the URL for manual PR creation:
+
+```
+https://github.com/agilehead/taptap/pull/new/<branch-name>
+```
+
+After pushing a feature branch, provide this URL to the user so they can create the PR manually with their preferred title and description.
+
+## Core Architecture
+
+### Project Structure
+
+```
+taptap/
+├── node/                    # Monorepo packages
+│   └── packages/
+│       ├── taptap-server/   # GraphQL API server
+│       ├── taptap-db/       # Database layer
+│       ├── taptap-logger/   # Structured logging
+│       └── taptap-test-utils/ # Test utilities
+├── database/                # Migrations
+│   └── sqlite/migrations/   # SQLite migrations
+├── scripts/                 # Build and utility scripts
+└── docs/                    # Documentation
+```
+
+### Temporary Directories (gitignored)
+
+These directories are excluded from git and used for temporary data:
+
+- `.tests/` - Test run data (e.g., `.tests/test-1234567890/data/` for test databases)
+- `.analysis/` - Analysis output and scratch files
+- `.temp/` - General temporary files
+
+### Key Concepts
+
+- **Notification Types**: 18 categories (AUCTION_WON, ITEM_SOLD, OUTBID, etc.)
+- **Email Queue**: SQLite table with status tracking (pending, sending, sent, failed)
+- **Throttle**: Rate limiting per notification type, recipient, and context
+- **Email Templates**: HTML and plain text formatters per notification type
+- **Providers**: Console (development) and SMTP (production) email delivery
+
+### Repository Pattern
+
+```typescript
+// Interface
+export type EmailQueueRepository = {
+  create: (data: CreateEmailQueueData) => EmailQueueItem;
+  findPending: (limit: number) => EmailQueueItem[];
+  markSending: (id: string) => void;
+  markSent: (id: string) => void;
+  markFailed: (id: string, error: string, maxAttempts: number) => void;
+};
+
+// Implementation
+export function createEmailQueueRepository(db: Database): EmailQueueRepository {
+  return {
+    create: (data) => {
+      // Tinqer query implementation
+    },
+    // ...
+  };
+}
+```
+
+## Environment Variables
+
+See `.env.example` for complete list. Key variables:
+
+### Server
+
+- `TAPTAP_SERVER_HOST` - Server bind address (default: 127.0.0.1)
+- `TAPTAP_SERVER_PORT` - Server port (default: 5006)
+- `TAPTAP_PUBLIC_URL` - Public URL for the service
+
+### Database
+
+- `TAPTAP_DATA_DIR` - Directory for SQLite database (REQUIRED)
+
+### Email
+
+- `EMAIL_PROVIDER` - `console` or `smtp` (REQUIRED)
+- `EMAIL_FROM_ADDRESS` - From address for outgoing emails (REQUIRED)
+- `EMAIL_FROM_NAME` - From name for outgoing emails (REQUIRED)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` - SMTP settings (required when provider is smtp)
+
+### Queue
+
+- `QUEUE_INTERVAL_MS` - Processing interval (default: 5000)
+- `QUEUE_BATCH_SIZE` - Batch size per cycle (default: 10)
+- `QUEUE_MAX_ATTEMPTS` - Max retry attempts (default: 3)
+
+## Code Patterns
+
+### Import Patterns
+
+```typescript
+// Always include .js extension
+import { createEmailQueueRepository } from "./queue/repository.js";
+import type { EmailQueueItem } from "./queue/types.js";
+```
+
+### Result Type Pattern
+
+```typescript
+export type SendResult = {
+  success: boolean;
+  error?: string;
+};
+```
+
+### Tinqer Query Pattern
+
+```typescript
+import { createSchema, executeSelect } from "@tinqerjs/tinqer";
+
+const schema = createSchema<DatabaseSchema>();
+
+export function findPending(db: Database, limit: number): EmailQueueItem[] {
+  const rows = executeSelect(
+    db,
+    schema,
+    (q, p) =>
+      q
+        .from("email_queue")
+        .where((e) => e.status === p.status)
+        .select((e) => ({
+          id: e.id,
+          notificationType: e.notification_type,
+          recipientEmail: e.recipient_email,
+        }))
+        .take(p.limit),
+    { status: "pending", limit }
+  );
+
+  return rows.map(mapRowToDomain);
+}
+```
+
+## Testing Strategy
+
+### Unit Tests
+
+- Repository functions
+- Email template formatting
+- Queue processor logic
+
+### Integration Tests
+
+- GraphQL API endpoints
+- Queue processing pipeline
+- Throttle behavior
+
+## Additional Resources
+
+- `/CODING-STANDARDS.md` - Detailed coding conventions

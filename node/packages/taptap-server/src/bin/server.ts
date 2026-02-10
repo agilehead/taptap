@@ -1,0 +1,140 @@
+#!/usr/bin/env node
+import express from "express";
+import cors from "cors";
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from "@as-integrations/express5";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { config as dotenvConfig } from "dotenv";
+
+dotenvConfig();
+
+import { config } from "../config.js";
+import { createLogger } from "@agilehead/taptap-logger";
+import { createContext, type Context } from "../context/index.js";
+import { resolvers } from "../resolvers/index.js";
+import { initSQLiteDatabase, closeSQLiteDatabase } from "@agilehead/taptap-db";
+import { createEmailQueueRepository } from "../queue/repository.js";
+import { createQueueProvider } from "../providers/queue.js";
+import { createThrottleRepository } from "../throttle/index.js";
+import {
+  createConsoleEmailProvider,
+  createSmtpEmailProvider,
+  type EmailProvider,
+} from "../providers/email/index.js";
+import { createInternalRoutes } from "../routes/internal.js";
+
+const logger = createLogger("taptap-server");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+async function startServer(): Promise<void> {
+  try {
+    const dbPath = join(config.data.dir, "taptap.db");
+    logger.info(`Initializing database at ${dbPath}...`);
+    const db = initSQLiteDatabase(dbPath);
+
+    const queueRepo = createEmailQueueRepository(db);
+    const throttleRepo = createThrottleRepository(db);
+
+    logger.info(
+      "Initializing queue-based notification provider with throttling...",
+    );
+    const provider = createQueueProvider(queueRepo, throttleRepo);
+
+    logger.info(`Initializing email provider (${config.email.provider})...`);
+    let emailProvider: EmailProvider;
+    if (config.email.provider === "smtp") {
+      emailProvider = createSmtpEmailProvider({
+        host: config.email.smtp.host,
+        port: config.email.smtp.port,
+        secure: config.email.smtp.secure,
+        user: config.email.smtp.user,
+        password: config.email.smtp.password,
+      });
+    } else {
+      emailProvider = createConsoleEmailProvider();
+    }
+    logger.info(`Email provider initialized: ${emailProvider.name}`);
+
+    logger.info("Loading GraphQL schema...");
+    const schemaPath = join(__dirname, "../schema.graphql");
+    const typeDefs = readFileSync(schemaPath, "utf-8");
+
+    logger.info("Creating Apollo Server...");
+    const server = new ApolloServer<Context>({
+      typeDefs,
+      resolvers,
+      introspection: !config.isProduction,
+      formatError: (formattedError, error) => {
+        logger.error("GraphQL Error:", {
+          message: formattedError.message,
+          path: formattedError.path,
+          extensions: formattedError.extensions,
+          originalError: error,
+        });
+        return formattedError;
+      },
+    });
+
+    await server.start();
+
+    const app = express();
+    if (config.isProduction) {
+      app.set("trust proxy", 1);
+    }
+    app.use(cors({ origin: config.cors.origins, credentials: false }));
+    app.use(express.json({ limit: "1mb" }));
+
+    app.get("/health", (_req, res) => {
+      res.json({
+        status: "healthy",
+        service: "taptap",
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Internal cron routes (process-queue, etc.)
+    app.use(
+      "/internal",
+      createInternalRoutes(config.cronSecret, queueRepo, emailProvider, {
+        batchSize: config.queue.batchSize,
+        maxAttempts: config.queue.maxAttempts,
+        fromEmail: config.email.from.email,
+        fromName: config.email.from.name,
+      }),
+    );
+
+    app.use(
+      "/graphql",
+      expressMiddleware(server, {
+        context: () =>
+          Promise.resolve(createContext(provider, emailProvider, queueRepo)),
+      }),
+    );
+
+    const { host, port } = config.server;
+    app.listen(port, host, () => {
+      logger.info(`TapTap server running at http://${host}:${String(port)}`);
+      logger.info(`GraphQL endpoint: http://${host}:${String(port)}/graphql`);
+      logger.info(`Health check: http://${host}:${String(port)}/health`);
+      logger.info(`Environment: ${config.nodeEnv}`);
+    });
+
+    const shutdown = (): void => {
+      logger.info("Shutting down gracefully...");
+      closeSQLiteDatabase(db);
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+  } catch (error) {
+    logger.error("Failed to start TapTap server:", error);
+    process.exit(1);
+  }
+}
+
+void startServer().catch((error: unknown) => {
+  logger.error("Unhandled error during startup:", error);
+  process.exit(1);
+});

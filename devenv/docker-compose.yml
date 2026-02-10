@@ -1,0 +1,59 @@
+# Docker Compose configuration for TapTap
+#
+# Usage:
+#   Development: docker compose up
+#   Testing:     Used by scripts/test-integration.sh compose
+#
+# Required environment variables (set by test-integration.sh or export manually):
+#   ENV_FILE - path to env file with configuration
+#
+# Host path variables (all have defaults):
+#   TAPTAP_DATA_HOST_DIR - host path for taptap db (default: ./data/taptap/db)
+#   TAPTAP_LOG_HOST_DIR - host path for taptap logs (default: ./data/taptap/logs)
+
+services:
+  # Database migrations - runs once and exits
+  taptap-migrations:
+    image: taptap-migrations:latest
+    container_name: taptap-migrations
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - TAPTAP_DATA_DIR=/app/data/taptap/db
+    volumes:
+      - ${TAPTAP_DATA_HOST_DIR:-./data/taptap/db}:/app/data/taptap/db
+
+  # TapTap Server
+  taptap-server:
+    image: taptap:latest
+    container_name: taptap-server
+    ports:
+      - "127.0.0.1:5006:5006"
+    env_file:
+      - ${ENV_FILE:-../.env}
+    environment:
+      # Container-specific paths and hosts (override values from env_file)
+      - NODE_ENV=${NODE_ENV:-production}
+      - TAPTAP_SERVER_HOST=0.0.0.0
+      - TAPTAP_SERVER_PORT=5006
+      - TAPTAP_PUBLIC_URL=http://localhost:5006
+      - TAPTAP_DATA_DIR=/app/data/taptap/db
+      - TAPTAP_LOG_FILE_DIR=/app/data/taptap/logs
+      - EMAIL_PROVIDER=console
+      - EMAIL_FROM_ADDRESS=noreply@lesser.app
+      - EMAIL_FROM_NAME=Lesser
+      - TAPTAP_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+    volumes:
+      - ${TAPTAP_DATA_HOST_DIR:-./data/taptap/db}:/app/data/taptap/db
+      - ${TAPTAP_LOG_HOST_DIR:-./data/taptap/logs}:/app/data/taptap/logs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5006/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

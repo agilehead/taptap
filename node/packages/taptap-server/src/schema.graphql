@@ -1,0 +1,45 @@
+enum NotificationType {
+  AUCTION_WON
+  AUCTION_ENDING_SOON
+  NEW_BID_ON_YOUR_ITEM
+  OUTBID
+  ITEM_SOLD
+  PURCHASE_CONFIRMED
+  NEW_ITEM_CHAT_MESSAGE
+  NEW_DIRECT_MESSAGE
+  NEW_FOLLOWER
+  NEW_REVIEW
+  VOUCHED_FOR_YOU
+  VERIFICATION_APPROVED
+  WATCHED_ITEM_PRICE_DROP
+  WATCHED_ITEM_ENDING_SOON
+  SAVED_SEARCH_MATCH
+  ITEM_REMOVED
+  ITEM_APPROVED
+  ACCOUNT_WARNING
+}
+
+input NotificationRecipientInput {
+  id: String!
+  email: String!
+  name: String!
+}
+
+input SendNotificationInput {
+  type: NotificationType!
+  recipient: NotificationRecipientInput!
+  data: String!
+}
+
+type SendNotificationResult {
+  success: Boolean!
+  error: String
+}
+
+type Query {
+  health: String!
+}
+
+type Mutation {
+  sendNotification(input: SendNotificationInput!): SendNotificationResult!
+}
