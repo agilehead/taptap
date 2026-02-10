@@ -244,11 +244,11 @@ When running background operations like deploys, builds, or tests:
 
 ```bash
 # Check migration status
-npm run migrate:status
+npm run migrate:taptap:status
 
 # Run migrations (ONLY when explicitly asked)
-npm run migrate:latest
-npm run migrate:rollback
+npm run migrate:taptap:latest
+npm run migrate:taptap:rollback
 ```
 
 ### Testing Commands
@@ -301,7 +301,9 @@ taptap/
 │       ├── taptap-logger/   # Structured logging
 │       └── taptap-test-utils/ # Test utilities
 ├── database/                # Migrations
-│   └── sqlite/migrations/   # SQLite migrations
+│   └── taptap/
+│       ├── knexfile.js      # Knex configuration
+│       └── migrations/      # SQLite migrations
 ├── scripts/                 # Build and utility scripts
 └── docs/                    # Documentation
 ```

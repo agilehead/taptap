@@ -13,10 +13,10 @@
     "start": "./scripts/start.sh",
     "test": "cd node/packages/taptap-server && npm test",
     "test:grep": "cd node/packages/taptap-server && npm run test:grep",
-    "migrate:latest": "knex migrate:latest --knexfile knexfile.js",
-    "migrate:rollback": "knex migrate:rollback --knexfile knexfile.js",
-    "migrate:status": "knex migrate:status --knexfile knexfile.js",
-    "migrate:make": "knex migrate:make --knexfile knexfile.js"
+    "migrate:taptap:latest": "knex migrate:latest --knexfile database/taptap/knexfile.js",
+    "migrate:taptap:rollback": "knex migrate:rollback --knexfile database/taptap/knexfile.js",
+    "migrate:taptap:status": "knex migrate:status --knexfile database/taptap/knexfile.js",
+    "migrate:taptap:make": "knex migrate:make --knexfile database/taptap/knexfile.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
