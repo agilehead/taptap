@@ -47,7 +47,9 @@ async function startServer(): Promise<void> {
     const throttleRepo = createThrottleRepository(db);
     const templateRepo = createEmailTemplateRepository(db);
 
-    logger.info("Initializing email provider", { provider: config.email.provider });
+    logger.info("Initializing email provider", {
+      provider: config.email.provider,
+    });
     let emailProvider: EmailProvider;
     if (config.email.provider === "smtp") {
       emailProvider = createSmtpEmailProvider({
