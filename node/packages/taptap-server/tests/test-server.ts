@@ -17,7 +17,8 @@ import { createLogger } from "@agilehead/taptap-logger";
 import { createContext, type Context } from "../src/context/index.js";
 import { resolvers } from "../src/resolvers/index.js";
 import { createEmailQueueRepository } from "../src/queue/repository.js";
-import { createQueueProvider } from "../src/providers/queue.js";
+import { createThrottleRepository } from "../src/throttle/index.js";
+import { createEmailTemplateRepository } from "../src/templates/index.js";
 import { createConsoleEmailProvider } from "../src/providers/email/console.js";
 import { createInternalRoutes } from "../src/routes/internal.js";
 
@@ -32,12 +33,13 @@ export async function startTestServer(
 ): Promise<{ stop(): Promise<void> }> {
   logger.info(`Starting test server on port ${String(port)}...`);
 
-  // Create queue repository with the test database
+  // Create repositories with the test database
   const queueRepo = createEmailQueueRepository(testDb.db);
+  const throttleRepo = createThrottleRepository(testDb.db);
+  const templateRepo = createEmailTemplateRepository(testDb.db);
 
-  // Create providers
+  // Create email provider
   const emailProvider = createConsoleEmailProvider();
-  const queueProvider = createQueueProvider(queueRepo);
 
   // Load GraphQL schema
   const schemaPath = join(__dirname, "../src/schema.graphql");
@@ -77,7 +79,7 @@ export async function startTestServer(
   app.use(
     "/graphql",
     expressMiddleware(apolloServer, {
-      context: () => Promise.resolve(createContext(queueProvider, emailProvider, queueRepo)),
+      context: () => Promise.resolve(createContext(queueRepo, emailProvider, throttleRepo, templateRepo)),
     }),
   );
 

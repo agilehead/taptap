@@ -41,8 +41,8 @@ export const config = {
   email: {
     provider: emailProvider,
     from: {
-      email: optional("EMAIL_FROM_ADDRESS", "noreply@lesser.app"),
-      name: optional("EMAIL_FROM_NAME", "Lesser"),
+      email: required("EMAIL_FROM_ADDRESS"),
+      name: required("EMAIL_FROM_NAME"),
     },
     smtp: {
       host: emailProvider === "smtp" ? required("SMTP_HOST") : "",

@@ -49,7 +49,6 @@ When you begin working on this project, you MUST:
 2. **Check for ongoing tasks in `.todos/` directory** - Look for any in-progress task files
 3. **Read the key documentation files** in this order:
    - `/README.md` - Project overview
-   - `/CODING-STANDARDS.md` - Mandatory coding patterns and conventions
    - `.env.example` - Configuration options
 
 Only after reading these documents should you proceed with any implementation or analysis tasks.
@@ -70,11 +69,12 @@ TapTap is a standalone notification service. It accepts notification requests vi
 
 ### Key Features
 
-- **GraphQL API**: Single `sendNotification` mutation with typed notification categories
+- **GraphQL API**: Template-based (`sendEmail`) and raw (`sendRawEmail`) email mutations
+- **Email Templates**: Registered via API, stored in DB, with `{{variable}}` substitution
 - **Email Queue**: SQLite-backed queue with batch processing and retry
-- **Email Templates**: 18 notification types with HTML and plain text templates
-- **Throttling**: Per-type rate limiting to prevent notification spam
-- **Email Providers**: Console (dev) and SMTP (production)
+- **Throttling**: Per-channel rate limiting by category, recipient, and context
+- **Email Providers**: Console (dev) and SMTP (production), extensible for future backends
+- **Multi-channel ready**: Architecture supports adding SMS, push, etc. alongside email
 
 ### Documentation & Code Principles
 
@@ -153,10 +153,11 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 
 - **SQLite** for development/initial deployment (via Tinqer)
 - **All SQL via Tinqer** - Never write raw SQL
-- **Repository Pattern** - Interfaces with SQLite implementation
-- **Singular table names**: lowercase (e.g., `email_queue`, `notification_throttle`)
+- **Raw SQL exception**: UPSERT (`INSERT ... ON CONFLICT ... UPDATE`) where Tinqer lacks support. Use `@param` binding syntax for better-sqlite3.
+- **Repository Pattern** - Types with SQLite implementation
+- **Singular table names**: lowercase (e.g., `email_queue`, `email_template`, `throttle`)
 - **Column names**: snake_case for all columns
-- **UUIDs** for primary keys
+- **Random hex IDs** for queue items (`randomBytes(10).toString("hex").substring(0, 16)`)
 - **Hard deletes** with audit logging
 - **MIGRATION POLICY**: Use migration system for all schema changes
 
@@ -196,7 +197,11 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 ./scripts/format-all.sh
 
 # Docker commands
-./scripts/docker-build.sh       # Build Docker image
+./scripts/docker-build.sh       # Build Docker images (taptap-migrations, taptap)
+
+# Integration tests
+./scripts/test-integration.sh local    # Run tests with local server
+./scripts/test-integration.sh compose  # Run tests against Docker Compose
 ```
 
 ### Database Commands
@@ -275,28 +280,27 @@ These directories are excluded from git and used for temporary data:
 
 ### Key Concepts
 
-- **Notification Types**: 18 categories (AUCTION_WON, ITEM_SOLD, OUTBID, etc.)
-- **Email Queue**: SQLite table with status tracking (pending, sending, sent, failed)
-- **Throttle**: Rate limiting per notification type, recipient, and context
-- **Email Templates**: HTML and plain text formatters per notification type
-- **Providers**: Console (development) and SMTP (production) email delivery
+- **Email Templates**: Registered via `registerEmailTemplate` mutation, stored in `email_template` table. Support `{{variable}}` substitution in subject, bodyHtml, bodyText.
+- **Email Queue**: `email_queue` table with status tracking (pending, sending, sent, failed). Processed by external cron calling `POST /internal/cron/process-queue`.
+- **Throttle**: Shared `throttle` table with `channel` column. Prevents duplicate sends for same (channel, category, recipient, context) within a time window.
+- **Providers**: `EmailProvider` interface with console (development) and SMTP (production) implementations. Selected via `EMAIL_PROVIDER` env var.
 
 ### Repository Pattern
 
 ```typescript
-// Interface
+// Type definition
 export type EmailQueueRepository = {
-  create: (data: CreateEmailQueueData) => EmailQueueItem;
-  findPending: (limit: number) => EmailQueueItem[];
-  markSending: (id: string) => void;
-  markSent: (id: string) => void;
-  markFailed: (id: string, error: string, maxAttempts: number) => void;
+  create(data: CreateEmailQueueItem): EmailQueueItem;
+  findPending(limit: number): EmailQueueItem[];
+  markSending(id: string): void;
+  markSent(id: string): void;
+  markFailed(id: string, error: string, maxAttempts: number): void;
 };
 
-// Implementation
-export function createEmailQueueRepository(db: Database): EmailQueueRepository {
+// Factory function
+export function createEmailQueueRepository(db: SQLiteDatabase): EmailQueueRepository {
   return {
-    create: (data) => {
+    create(data) {
       // Tinqer query implementation
     },
     // ...
@@ -310,26 +314,34 @@ See `.env.example` for complete list. Key variables:
 
 ### Server
 
-- `TAPTAP_SERVER_HOST` - Server bind address (default: 127.0.0.1)
+- `TAPTAP_SERVER_HOST` - Server bind address (REQUIRED)
 - `TAPTAP_SERVER_PORT` - Server port (default: 5006)
-- `TAPTAP_PUBLIC_URL` - Public URL for the service
 
 ### Database
 
 - `TAPTAP_DATA_DIR` - Directory for SQLite database (REQUIRED)
 
+### Security
+
+- `CRON_SECRET` - Bearer token for internal cron endpoints (REQUIRED)
+- `TAPTAP_CORS_ORIGINS` - Comma-separated allowed origins (REQUIRED)
+
 ### Email
 
-- `EMAIL_PROVIDER` - `console` or `smtp` (REQUIRED)
+- `EMAIL_PROVIDER` - `console` or `smtp` (default: console)
 - `EMAIL_FROM_ADDRESS` - From address for outgoing emails (REQUIRED)
 - `EMAIL_FROM_NAME` - From name for outgoing emails (REQUIRED)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` - SMTP settings (required when provider is smtp)
 
 ### Queue
 
-- `QUEUE_INTERVAL_MS` - Processing interval (default: 5000)
 - `QUEUE_BATCH_SIZE` - Batch size per cycle (default: 10)
 - `QUEUE_MAX_ATTEMPTS` - Max retry attempts (default: 3)
+
+### Logging
+
+- `LOG_LEVEL` - Log level (default: info)
+- `TAPTAP_LOG_FILE_DIR` - Directory for log files (optional)
 
 ## Code Patterns
 
@@ -353,11 +365,10 @@ export type SendResult = {
 ### Tinqer Query Pattern
 
 ```typescript
-import { createSchema, executeSelect } from "@tinqerjs/tinqer";
+import { executeSelect } from "@tinqerjs/better-sqlite3-adapter";
+import { schema, type SQLiteDatabase } from "@agilehead/taptap-db";
 
-const schema = createSchema<DatabaseSchema>();
-
-export function findPending(db: Database, limit: number): EmailQueueItem[] {
+export function findPending(db: SQLiteDatabase, limit: number): EmailQueueItem[] {
   const rows = executeSelect(
     db,
     schema,
@@ -365,16 +376,12 @@ export function findPending(db: Database, limit: number): EmailQueueItem[] {
       q
         .from("email_queue")
         .where((e) => e.status === p.status)
-        .select((e) => ({
-          id: e.id,
-          notificationType: e.notification_type,
-          recipientEmail: e.recipient_email,
-        }))
+        .orderBy((e) => e.created_at)
         .take(p.limit),
-    { status: "pending", limit }
+    { status: "pending", limit },
   );
 
-  return rows.map(mapRowToDomain);
+  return rows.map((row) => mapRowToDomain(row as unknown as EmailQueueRow));
 }
 ```
 
@@ -382,16 +389,19 @@ export function findPending(db: Database, limit: number): EmailQueueItem[] {
 
 ### Unit Tests
 
-- Repository functions
-- Email template formatting
-- Queue processor logic
+- Template rendering (`render.test.ts`)
+- Queue repository functions (`repository.test.ts`)
+- Throttle repository functions (`repository.test.ts`)
 
 ### Integration Tests
 
-- GraphQL API endpoints
-- Queue processing pipeline
-- Throttle behavior
+- Template CRUD via GraphQL (`template.test.ts`)
+- `sendEmail` and `sendRawEmail` mutations (`send-email.test.ts`, `send-raw-email.test.ts`)
+- Queue processor with cron endpoint (`processor.test.ts`)
+- Health check (`health.test.ts`)
 
-## Additional Resources
+### Test Infrastructure
 
-- `/CODING-STANDARDS.md` - Detailed coding conventions
+- Tests run against a local test server (port 5010) or an external Docker container
+- `truncateAllTables()` clears all tables between tests
+- `TEST_URL` and `TEST_DB_PATH` env vars for external mode (Docker Compose)

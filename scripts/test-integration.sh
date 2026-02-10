@@ -84,7 +84,6 @@ NODE_ENV=test
 # Server
 TAPTAP_SERVER_HOST=0.0.0.0
 TAPTAP_SERVER_PORT=5006
-TAPTAP_PUBLIC_URL=http://localhost:5006
 
 # Database (container path)
 TAPTAP_DATA_DIR=/app/data/taptap/db
@@ -127,12 +126,12 @@ EOF
 
     # Start server
     echo "Starting TapTap server..."
-    $COMPOSE_CMD up -d taptap-server
+    $COMPOSE_CMD up -d taptap
 
     if ! wait_for_server "http://localhost:5006"; then
       echo -e "${RED}TapTap server failed to start. Showing logs:${NC}"
       $COMPOSE_CMD logs taptap-migrations
-      $COMPOSE_CMD logs taptap-server
+      $COMPOSE_CMD logs taptap
       $COMPOSE_CMD down
       rm -rf "$TEST_DIR"
       exit 1

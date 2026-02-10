@@ -10,18 +10,19 @@ describe("Email Queue Repository", () => {
     it("should create a queue item with pending status", () => {
       const item = queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: "order-update",
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "Test User",
         subject: "You won!",
         bodyHtml: "<p>You won!</p>",
         bodyText: "You won!",
-        data: JSON.stringify({ itemId: "item-1" }),
+        metadata: JSON.stringify({ itemId: "item-1" }),
       });
 
       expect(item.id).to.equal("test-1");
-      expect(item.notificationType).to.equal("AUCTION_WON");
+      expect(item.category).to.equal("order-update");
       expect(item.recipientId).to.equal("user-1");
       expect(item.recipientEmail).to.equal("user@test.com");
       expect(item.recipientName).to.equal("Test User");
@@ -36,14 +37,15 @@ describe("Email Queue Repository", () => {
     it("should store body HTML and text", () => {
       const item = queueRepo.create({
         id: "test-2",
-        notificationType: "ITEM_SOLD",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "Test User",
         subject: "Item sold",
         bodyHtml: "<h1>Sold!</h1>",
         bodyText: "Sold!",
-        data: "{}",
+        metadata: null,
       });
 
       expect(item.bodyHtml).to.equal("<h1>Sold!</h1>");
@@ -60,14 +62,15 @@ describe("Email Queue Repository", () => {
     it("should return pending items", () => {
       queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: "alerts",
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       const items = queueRepo.findPending(10);
@@ -79,14 +82,15 @@ describe("Email Queue Repository", () => {
       for (let i = 0; i < 5; i++) {
         queueRepo.create({
           id: `test-${String(i)}`,
-          notificationType: "OUTBID",
+          templateName: null,
+          category: null,
           recipientId: "user-1",
           recipientEmail: "user@test.com",
           recipientName: "User",
           subject: "Subject",
           bodyHtml: "<p>Body</p>",
           bodyText: "Body",
-          data: "{}",
+          metadata: null,
         });
       }
 
@@ -97,28 +101,30 @@ describe("Email Queue Repository", () => {
     it("should not return items with non-pending status", () => {
       queueRepo.create({
         id: "test-sent",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
       queueRepo.markSending("test-sent");
       queueRepo.markSent("test-sent");
 
       queueRepo.create({
         id: "test-pending",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       const items = queueRepo.findPending(10);
@@ -131,14 +137,15 @@ describe("Email Queue Repository", () => {
     it("should update status to sending", () => {
       queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       queueRepo.markSending("test-1");
@@ -153,14 +160,15 @@ describe("Email Queue Repository", () => {
     it("should update status to sent with timestamp", () => {
       queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       queueRepo.markSending("test-1");
@@ -176,14 +184,15 @@ describe("Email Queue Repository", () => {
     it("should set status back to pending when under max attempts", () => {
       queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       queueRepo.markSending("test-1");
@@ -198,14 +207,15 @@ describe("Email Queue Repository", () => {
     it("should set status to failed when max attempts reached", () => {
       queueRepo.create({
         id: "test-1",
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: "Subject",
         bodyHtml: "<p>Body</p>",
         bodyText: "Body",
-        data: "{}",
+        metadata: null,
       });
 
       // Fail 3 times (maxAttempts = 3)

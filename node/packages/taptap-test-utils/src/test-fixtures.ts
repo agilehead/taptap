@@ -23,36 +23,39 @@ export function generateId(length = 10): string {
 // Create a test email queue item fixture
 export function createTestEmailQueueItem(overrides?: {
   id?: string;
-  notificationType?: string;
+  templateName?: string | null;
   recipientId?: string;
   recipientEmail?: string;
   recipientName?: string;
   subject?: string;
   bodyHtml?: string;
   bodyText?: string;
-  data?: string;
+  category?: string | null;
+  metadata?: string | null;
 }): {
   id: string;
-  notificationType: string;
+  templateName: string | null;
   recipientId: string;
   recipientEmail: string;
   recipientName: string;
   subject: string;
   bodyHtml: string;
   bodyText: string;
-  data: string;
+  category: string | null;
+  metadata: string | null;
 } {
   const id = overrides?.id ?? generateId(10);
 
   return {
     id,
-    notificationType: overrides?.notificationType ?? "AUCTION_WON",
+    templateName: overrides?.templateName ?? null,
     recipientId: overrides?.recipientId ?? `user-${generateId(8)}`,
     recipientEmail: overrides?.recipientEmail ?? `test-${id}@example.com`,
     recipientName: overrides?.recipientName ?? `Test User ${id}`,
     subject: overrides?.subject ?? "Test notification",
     bodyHtml: overrides?.bodyHtml ?? "<p>Test notification body</p>",
     bodyText: overrides?.bodyText ?? "Test notification body",
-    data: overrides?.data ?? JSON.stringify({ itemId: "test-item" }),
+    category: overrides?.category ?? null,
+    metadata: overrides?.metadata ?? null,
   };
 }

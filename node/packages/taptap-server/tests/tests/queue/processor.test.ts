@@ -1,5 +1,7 @@
 import { expect } from "chai";
 import { queueRepo, truncateEmailQueue, serverBaseUrl, cronSecret } from "../../setup.js";
+import { processQueue } from "../../../src/queue/processor.js";
+import type { EmailProvider } from "../../../src/providers/email/types.js";
 
 type ProcessQueueResult = {
   processed: number;
@@ -26,14 +28,15 @@ describe("Email Queue Processor", () => {
   it("should process pending emails", async () => {
     queueRepo.create({
       id: "proc-1",
-      notificationType: "AUCTION_WON",
+      templateName: null,
+      category: "alerts",
       recipientId: "user-1",
       recipientEmail: "user@test.com",
       recipientName: "User",
       subject: "You won!",
       bodyHtml: "<p>Won</p>",
       bodyText: "Won",
-      data: "{}",
+      metadata: null,
     });
 
     const result = await callProcessQueue();
@@ -59,14 +62,15 @@ describe("Email Queue Processor", () => {
     for (let i = 0; i < 3; i++) {
       queueRepo.create({
         id: `batch-${String(i)}`,
-        notificationType: "AUCTION_WON",
+        templateName: null,
+        category: null,
         recipientId: "user-1",
         recipientEmail: "user@test.com",
         recipientName: "User",
         subject: `Email ${String(i)}`,
         bodyHtml: `<p>${String(i)}</p>`,
         bodyText: String(i),
-        data: "{}",
+        metadata: null,
       });
     }
 
@@ -82,14 +86,14 @@ describe("Email Queue Processor", () => {
   it("should not process already-sent items", async () => {
     queueRepo.create({
       id: "already-sent",
-      notificationType: "AUCTION_WON",
+      category: null,
       recipientId: "user-1",
       recipientEmail: "user@test.com",
       recipientName: "User",
       subject: "Subject",
       bodyHtml: "<p>Body</p>",
       bodyText: "Body",
-      data: "{}",
+      metadata: null,
     });
     queueRepo.markSending("already-sent");
     queueRepo.markSent("already-sent");
@@ -118,5 +122,75 @@ describe("Email Queue Processor", () => {
     });
 
     expect(response.status).to.equal(401);
+  });
+
+  it("should handle provider returning failure", async () => {
+    queueRepo.create({
+      id: "fail-1",
+      templateName: null,
+      category: null,
+      recipientId: "user-1",
+      recipientEmail: "user@test.com",
+      recipientName: "User",
+      subject: "Subject",
+      bodyHtml: "<p>Body</p>",
+      bodyText: "Body",
+      metadata: null,
+    });
+
+    const failingProvider: EmailProvider = {
+      name: "failing-test",
+      send: () => Promise.resolve({ success: false, error: "SMTP connection refused" }),
+    };
+
+    const result = await processQueue(queueRepo, failingProvider, {
+      batchSize: 10,
+      maxAttempts: 3,
+      fromEmail: "noreply@test.com",
+      fromName: "Test",
+    });
+
+    expect(result.processed).to.equal(1);
+    expect(result.sent).to.equal(0);
+    expect(result.failed).to.equal(1);
+
+    // Should still be pending (retry, attempts < maxAttempts)
+    const pending = queueRepo.findPending(10);
+    expect(pending).to.have.length(1);
+  });
+
+  it("should handle provider throwing an exception", async () => {
+    queueRepo.create({
+      id: "throw-1",
+      templateName: null,
+      category: null,
+      recipientId: "user-1",
+      recipientEmail: "user@test.com",
+      recipientName: "User",
+      subject: "Subject",
+      bodyHtml: "<p>Body</p>",
+      bodyText: "Body",
+      metadata: null,
+    });
+
+    const throwingProvider: EmailProvider = {
+      name: "throwing-test",
+      send: () => Promise.reject(new Error("Network timeout")),
+    };
+
+    const result = await processQueue(queueRepo, throwingProvider, {
+      batchSize: 10,
+      maxAttempts: 3,
+      fromEmail: "noreply@test.com",
+      fromName: "Test",
+    });
+
+    expect(result.processed).to.equal(1);
+    expect(result.sent).to.equal(0);
+    expect(result.failed).to.equal(1);
+
+    // Should still be pending (retry)
+    const pending = queueRepo.findPending(10);
+    expect(pending).to.have.length(1);
   });
 });

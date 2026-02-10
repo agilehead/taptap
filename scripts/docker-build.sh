@@ -2,7 +2,7 @@
 
 # Docker build script for TapTap
 # Usage: ./docker-build.sh [tag]
-# Builds three targets: taptap-migrations, taptap-server (production), taptap-dev
+# Builds two targets: taptap-migrations, taptap (production)
 
 set -e
 

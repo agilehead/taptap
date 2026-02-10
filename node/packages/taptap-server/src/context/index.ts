@@ -1,17 +1,20 @@
-import type { NotificationProvider } from "../providers/types.js";
 import type { EmailProvider } from "../providers/email/types.js";
 import type { EmailQueueRepository } from "../queue/types.js";
+import type { ThrottleRepository } from "../throttle/types.js";
+import type { EmailTemplateRepository } from "../templates/types.js";
 
 export type Context = {
-  provider: NotificationProvider;
-  emailProvider: EmailProvider;
   queueRepo: EmailQueueRepository;
+  emailProvider: EmailProvider;
+  throttleRepo: ThrottleRepository;
+  templateRepo: EmailTemplateRepository;
 };
 
 export function createContext(
-  provider: NotificationProvider,
-  emailProvider: EmailProvider,
   queueRepo: EmailQueueRepository,
+  emailProvider: EmailProvider,
+  throttleRepo: ThrottleRepository,
+  templateRepo: EmailTemplateRepository,
 ): Context {
-  return { provider, emailProvider, queueRepo };
+  return { queueRepo, emailProvider, throttleRepo, templateRepo };
 }
