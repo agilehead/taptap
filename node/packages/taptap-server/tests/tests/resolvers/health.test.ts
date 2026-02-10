@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { graphqlUrl } from "../../setup.js";
-import { HEALTH_QUERY } from "../../graphql/operations/notifications.js";
+import { HEALTH_QUERY } from "../../graphql/operations/emails.js";
 
 type HealthQueryResult = {
   health: string;

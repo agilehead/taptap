@@ -44,9 +44,7 @@ export async function processQueue(
         if (sendResult.success) {
           queueRepo.markSent(item.id);
           result.sent++;
-          logger.info(
-            `Sent ${item.notificationType} email to ${item.recipientEmail} (${item.id})`,
-          );
+          logger.info(`Sent email to ${item.recipientEmail} (${item.id})`);
         } else {
           queueRepo.markFailed(
             item.id,

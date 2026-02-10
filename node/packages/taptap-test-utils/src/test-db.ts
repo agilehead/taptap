@@ -159,14 +159,15 @@ export function clearTestDatabaseInstance(): void {
 
 export type InsertEmailQueueData = {
   id: string;
-  notificationType: string;
+  templateName: string | null;
   recipientId: string;
   recipientEmail: string;
   recipientName: string;
   subject: string;
   bodyHtml: string;
   bodyText: string;
-  data?: string;
+  category?: string | null;
+  metadata?: string | null;
   status?: string;
   attempts?: number;
   lastError?: string | null;
@@ -183,26 +184,27 @@ export function insertEmailQueueItem(
   testDb.db
     .prepare(
       `INSERT INTO email_queue (
-        id, notification_type, recipient_id, recipient_email, recipient_name,
-        subject, body_html, body_text, data, status, attempts, last_error,
+        id, template_name, status, recipient_id, recipient_email, recipient_name,
+        subject, body_html, body_text, category, metadata, attempts, last_error,
         created_at, sent_at
       ) VALUES (
-        @id, @notificationType, @recipientId, @recipientEmail, @recipientName,
-        @subject, @bodyHtml, @bodyText, @data, @status, @attempts, @lastError,
+        @id, @templateName, @status, @recipientId, @recipientEmail, @recipientName,
+        @subject, @bodyHtml, @bodyText, @category, @metadata, @attempts, @lastError,
         @createdAt, @sentAt
       )`,
     )
     .run({
       id: data.id,
-      notificationType: data.notificationType,
+      templateName: data.templateName,
+      status: data.status ?? "pending",
       recipientId: data.recipientId,
       recipientEmail: data.recipientEmail,
       recipientName: data.recipientName,
       subject: data.subject,
       bodyHtml: data.bodyHtml,
       bodyText: data.bodyText,
-      data: data.data ?? "{}",
-      status: data.status ?? "pending",
+      category: data.category ?? null,
+      metadata: data.metadata ?? null,
       attempts: data.attempts ?? 0,
       lastError: data.lastError ?? null,
       createdAt: data.createdAt ?? now,
@@ -212,15 +214,16 @@ export function insertEmailQueueItem(
 
 export type EmailQueueRecord = {
   id: string;
-  notification_type: string;
+  template_name: string | null;
+  status: string;
   recipient_id: string;
   recipient_email: string;
   recipient_name: string;
   subject: string;
   body_html: string;
   body_text: string;
-  data: string;
-  status: string;
+  category: string | null;
+  metadata: string | null;
   attempts: number;
   last_error: string | null;
   created_at: string;

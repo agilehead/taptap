@@ -3,23 +3,30 @@ import { schema, type SQLiteDatabase } from "@agilehead/taptap-db";
 import type { ThrottleRepository, ThrottleRow } from "./types.js";
 
 function makeThrottleId(
-  notificationType: string,
+  channel: string,
+  category: string,
   recipientId: string,
   contextId: string,
 ): string {
-  return `${notificationType}:${recipientId}:${contextId}`;
+  return `${channel}:${category}:${recipientId}:${contextId}`;
 }
 
 export function createThrottleRepository(
   db: SQLiteDatabase,
 ): ThrottleRepository {
   return {
-    isThrottled(notificationType, recipientId, contextId, intervalMs): boolean {
-      const id = makeThrottleId(notificationType, recipientId, contextId);
+    isThrottled(
+      channel,
+      category,
+      recipientId,
+      contextId,
+      intervalMs,
+    ): boolean {
+      const id = makeThrottleId(channel, category, recipientId, contextId);
       const rows = executeSelect(
         db,
         schema,
-        (q, p) => q.from("notification_throttle").where((t) => t.id === p.id),
+        (q, p) => q.from("throttle").where((t) => t.id === p.id),
         { id },
       );
       if (rows.length === 0) return false;
@@ -29,17 +36,20 @@ export function createThrottleRepository(
       return now - lastSentAt < intervalMs;
     },
 
-    recordSent(notificationType, recipientId, contextId): void {
-      const id = makeThrottleId(notificationType, recipientId, contextId);
+    recordSent(channel, category, recipientId, contextId): void {
+      const id = makeThrottleId(channel, category, recipientId, contextId);
       const now = new Date().toISOString();
+      // Use raw SQL for UPSERT (INSERT ... ON CONFLICT ... UPDATE)
+      // better-sqlite3 uses @param binding syntax
       const stmt = db.prepare(`
-        INSERT INTO notification_throttle (id, notification_type, recipient_id, context_id, last_sent_at)
-        VALUES (:id, :notificationType, :recipientId, :contextId, :lastSentAt)
-        ON CONFLICT(id) DO UPDATE SET last_sent_at = :lastSentAt
+        INSERT INTO throttle (id, channel, category, recipient_id, context_id, last_sent_at)
+        VALUES (@id, @channel, @category, @recipientId, @contextId, @lastSentAt)
+        ON CONFLICT(id) DO UPDATE SET last_sent_at = @lastSentAt
       `);
       stmt.run({
         id,
-        notificationType,
+        channel,
+        category,
         recipientId,
         contextId,
         lastSentAt: now,

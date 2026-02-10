@@ -32,56 +32,102 @@ export type Scalars = {
   Float: { input: number; output: number };
 };
 
-export type GQLMutation = {
-  __typename?: "Mutation";
-  sendNotification: GQLSendNotificationResult;
-};
-
-export type GQLMutationSendNotificationArgs = {
-  input: GQLSendNotificationInput;
-};
-
-export type GQLNotificationRecipientInput = {
+export type GQLEmailRecipientInput = {
   email: Scalars["String"]["input"];
   id: Scalars["String"]["input"];
   name: Scalars["String"]["input"];
 };
 
-export type GQLNotificationType =
-  | "ACCOUNT_WARNING"
-  | "AUCTION_ENDING_SOON"
-  | "AUCTION_WON"
-  | "ITEM_APPROVED"
-  | "ITEM_REMOVED"
-  | "ITEM_SOLD"
-  | "NEW_BID_ON_YOUR_ITEM"
-  | "NEW_DIRECT_MESSAGE"
-  | "NEW_FOLLOWER"
-  | "NEW_ITEM_CHAT_MESSAGE"
-  | "NEW_REVIEW"
-  | "OUTBID"
-  | "PURCHASE_CONFIRMED"
-  | "SAVED_SEARCH_MATCH"
-  | "VERIFICATION_APPROVED"
-  | "VOUCHED_FOR_YOU"
-  | "WATCHED_ITEM_ENDING_SOON"
-  | "WATCHED_ITEM_PRICE_DROP";
+export type GQLEmailTemplate = {
+  __typename?: "EmailTemplate";
+  bodyHtml: Scalars["String"]["output"];
+  bodyText: Scalars["String"]["output"];
+  createdAt: Scalars["String"]["output"];
+  name: Scalars["String"]["output"];
+  subject: Scalars["String"]["output"];
+  updatedAt: Scalars["String"]["output"];
+};
+
+export type GQLMutation = {
+  __typename?: "Mutation";
+  deleteEmailTemplate: Scalars["Boolean"]["output"];
+  registerEmailTemplate: GQLEmailTemplate;
+  sendEmail: GQLSendResult;
+  sendRawEmail: GQLSendResult;
+  updateEmailTemplate: GQLEmailTemplate;
+};
+
+export type GQLMutationDeleteEmailTemplateArgs = {
+  name: Scalars["String"]["input"];
+};
+
+export type GQLMutationRegisterEmailTemplateArgs = {
+  input: GQLRegisterEmailTemplateInput;
+};
+
+export type GQLMutationSendEmailArgs = {
+  input: GQLSendEmailInput;
+};
+
+export type GQLMutationSendRawEmailArgs = {
+  input: GQLSendRawEmailInput;
+};
+
+export type GQLMutationUpdateEmailTemplateArgs = {
+  input: GQLUpdateEmailTemplateInput;
+  name: Scalars["String"]["input"];
+};
 
 export type GQLQuery = {
   __typename?: "Query";
+  emailTemplate: Maybe<GQLEmailTemplate>;
+  emailTemplates: Array<GQLEmailTemplate>;
   health: Scalars["String"]["output"];
 };
 
-export type GQLSendNotificationInput = {
-  data: Scalars["String"]["input"];
-  recipient: GQLNotificationRecipientInput;
-  type: GQLNotificationType;
+export type GQLQueryEmailTemplateArgs = {
+  name: Scalars["String"]["input"];
 };
 
-export type GQLSendNotificationResult = {
-  __typename?: "SendNotificationResult";
+export type GQLRegisterEmailTemplateInput = {
+  bodyHtml: Scalars["String"]["input"];
+  bodyText: Scalars["String"]["input"];
+  name: Scalars["String"]["input"];
+  subject: Scalars["String"]["input"];
+};
+
+export type GQLSendEmailInput = {
+  category?: InputMaybe<Scalars["String"]["input"]>;
+  contextId?: InputMaybe<Scalars["String"]["input"]>;
+  metadata?: InputMaybe<Scalars["String"]["input"]>;
+  recipient: GQLEmailRecipientInput;
+  template: Scalars["String"]["input"];
+  throttleIntervalMs?: InputMaybe<Scalars["Int"]["input"]>;
+  variables?: InputMaybe<Scalars["String"]["input"]>;
+};
+
+export type GQLSendRawEmailInput = {
+  bodyHtml: Scalars["String"]["input"];
+  bodyText: Scalars["String"]["input"];
+  category?: InputMaybe<Scalars["String"]["input"]>;
+  contextId?: InputMaybe<Scalars["String"]["input"]>;
+  metadata?: InputMaybe<Scalars["String"]["input"]>;
+  recipient: GQLEmailRecipientInput;
+  subject: Scalars["String"]["input"];
+  throttleIntervalMs?: InputMaybe<Scalars["Int"]["input"]>;
+};
+
+export type GQLSendResult = {
+  __typename?: "SendResult";
   error: Maybe<Scalars["String"]["output"]>;
   success: Scalars["Boolean"]["output"];
+  throttled: Scalars["Boolean"]["output"];
+};
+
+export type GQLUpdateEmailTemplateInput = {
+  bodyHtml?: InputMaybe<Scalars["String"]["input"]>;
+  bodyText?: InputMaybe<Scalars["String"]["input"]>;
+  subject?: InputMaybe<Scalars["String"]["input"]>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -195,24 +241,47 @@ export type DirectiveResolverFn<
 /** Mapping between all available schema types and the resolvers types */
 export type GQLResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars["Boolean"]["output"]>;
+  EmailRecipientInput: GQLEmailRecipientInput;
+  EmailTemplate: ResolverTypeWrapper<GQLEmailTemplate>;
+  Int: ResolverTypeWrapper<Scalars["Int"]["output"]>;
   Mutation: ResolverTypeWrapper<{}>;
-  NotificationRecipientInput: GQLNotificationRecipientInput;
-  NotificationType: GQLNotificationType;
   Query: ResolverTypeWrapper<{}>;
-  SendNotificationInput: GQLSendNotificationInput;
-  SendNotificationResult: ResolverTypeWrapper<GQLSendNotificationResult>;
+  RegisterEmailTemplateInput: GQLRegisterEmailTemplateInput;
+  SendEmailInput: GQLSendEmailInput;
+  SendRawEmailInput: GQLSendRawEmailInput;
+  SendResult: ResolverTypeWrapper<GQLSendResult>;
   String: ResolverTypeWrapper<Scalars["String"]["output"]>;
+  UpdateEmailTemplateInput: GQLUpdateEmailTemplateInput;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type GQLResolversParentTypes = ResolversObject<{
   Boolean: Scalars["Boolean"]["output"];
+  EmailRecipientInput: GQLEmailRecipientInput;
+  EmailTemplate: GQLEmailTemplate;
+  Int: Scalars["Int"]["output"];
   Mutation: {};
-  NotificationRecipientInput: GQLNotificationRecipientInput;
   Query: {};
-  SendNotificationInput: GQLSendNotificationInput;
-  SendNotificationResult: GQLSendNotificationResult;
+  RegisterEmailTemplateInput: GQLRegisterEmailTemplateInput;
+  SendEmailInput: GQLSendEmailInput;
+  SendRawEmailInput: GQLSendRawEmailInput;
+  SendResult: GQLSendResult;
   String: Scalars["String"]["output"];
+  UpdateEmailTemplateInput: GQLUpdateEmailTemplateInput;
+}>;
+
+export type GQLEmailTemplateResolvers<
+  ContextType = Context,
+  ParentType extends GQLResolversParentTypes["EmailTemplate"] =
+    GQLResolversParentTypes["EmailTemplate"],
+> = ResolversObject<{
+  bodyHtml?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  bodyText?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  createdAt?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  name?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  subject?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  updatedAt?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type GQLMutationResolvers<
@@ -220,11 +289,35 @@ export type GQLMutationResolvers<
   ParentType extends GQLResolversParentTypes["Mutation"] =
     GQLResolversParentTypes["Mutation"],
 > = ResolversObject<{
-  sendNotification?: Resolver<
-    GQLResolversTypes["SendNotificationResult"],
+  deleteEmailTemplate?: Resolver<
+    GQLResolversTypes["Boolean"],
     ParentType,
     ContextType,
-    RequireFields<GQLMutationSendNotificationArgs, "input">
+    RequireFields<GQLMutationDeleteEmailTemplateArgs, "name">
+  >;
+  registerEmailTemplate?: Resolver<
+    GQLResolversTypes["EmailTemplate"],
+    ParentType,
+    ContextType,
+    RequireFields<GQLMutationRegisterEmailTemplateArgs, "input">
+  >;
+  sendEmail?: Resolver<
+    GQLResolversTypes["SendResult"],
+    ParentType,
+    ContextType,
+    RequireFields<GQLMutationSendEmailArgs, "input">
+  >;
+  sendRawEmail?: Resolver<
+    GQLResolversTypes["SendResult"],
+    ParentType,
+    ContextType,
+    RequireFields<GQLMutationSendRawEmailArgs, "input">
+  >;
+  updateEmailTemplate?: Resolver<
+    GQLResolversTypes["EmailTemplate"],
+    ParentType,
+    ContextType,
+    RequireFields<GQLMutationUpdateEmailTemplateArgs, "input" | "name">
   >;
 }>;
 
@@ -233,21 +326,34 @@ export type GQLQueryResolvers<
   ParentType extends GQLResolversParentTypes["Query"] =
     GQLResolversParentTypes["Query"],
 > = ResolversObject<{
+  emailTemplate?: Resolver<
+    Maybe<GQLResolversTypes["EmailTemplate"]>,
+    ParentType,
+    ContextType,
+    RequireFields<GQLQueryEmailTemplateArgs, "name">
+  >;
+  emailTemplates?: Resolver<
+    Array<GQLResolversTypes["EmailTemplate"]>,
+    ParentType,
+    ContextType
+  >;
   health?: Resolver<GQLResolversTypes["String"], ParentType, ContextType>;
 }>;
 
-export type GQLSendNotificationResultResolvers<
+export type GQLSendResultResolvers<
   ContextType = Context,
-  ParentType extends GQLResolversParentTypes["SendNotificationResult"] =
-    GQLResolversParentTypes["SendNotificationResult"],
+  ParentType extends GQLResolversParentTypes["SendResult"] =
+    GQLResolversParentTypes["SendResult"],
 > = ResolversObject<{
   error?: Resolver<Maybe<GQLResolversTypes["String"]>, ParentType, ContextType>;
   success?: Resolver<GQLResolversTypes["Boolean"], ParentType, ContextType>;
+  throttled?: Resolver<GQLResolversTypes["Boolean"], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
 export type GQLResolvers<ContextType = Context> = ResolversObject<{
+  EmailTemplate?: GQLEmailTemplateResolvers<ContextType>;
   Mutation?: GQLMutationResolvers<ContextType>;
   Query?: GQLQueryResolvers<ContextType>;
-  SendNotificationResult?: GQLSendNotificationResultResolvers<ContextType>;
+  SendResult?: GQLSendResultResolvers<ContextType>;
 }>;

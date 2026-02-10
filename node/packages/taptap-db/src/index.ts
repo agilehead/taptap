@@ -16,7 +16,11 @@ export {
 export { schema } from "./tinqer-schema.js";
 
 // SQLite row types
-export type { EmailQueueRow, NotificationThrottleRow } from "./types/sqlite.js";
+export type {
+  EmailTemplateRow,
+  EmailQueueRow,
+  ThrottleRow,
+} from "./types/sqlite.js";
 
 // Migrations
 export {

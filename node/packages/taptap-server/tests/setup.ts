@@ -15,7 +15,11 @@ import {
 } from "@agilehead/taptap-test-utils";
 import { createLogger } from "@agilehead/taptap-logger";
 import { createEmailQueueRepository } from "../src/queue/repository.js";
+import { createEmailTemplateRepository } from "../src/templates/repository.js";
+import { createThrottleRepository } from "../src/throttle/repository.js";
 import type { EmailQueueRepository } from "../src/queue/types.js";
+import type { EmailTemplateRepository } from "../src/templates/types.js";
+import type { ThrottleRepository } from "../src/throttle/types.js";
 
 const logger = createLogger("taptap-test");
 
@@ -23,6 +27,8 @@ export { logger as testLogger };
 
 export let testDb: TestDatabase;
 export let queueRepo: EmailQueueRepository;
+export let templateRepo: EmailTemplateRepository;
+export let throttleRepo: ThrottleRepository;
 export let graphqlUrl: string;
 export let serverBaseUrl: string;
 export let cronSecret: string;
@@ -49,6 +55,8 @@ export async function setupTests(): Promise<void> {
       testDb = getExternalTestDatabaseInstance(externalDbPath, logger);
       await setupTestDatabase(testDb);
       queueRepo = createEmailQueueRepository(testDb.db);
+      templateRepo = createEmailTemplateRepository(testDb.db);
+      throttleRepo = createThrottleRepository(testDb.db);
     } else {
       logger.warn("TEST_URL is set but TEST_DB_PATH is not - tests requiring database setup will fail");
     }
@@ -67,6 +75,8 @@ export async function setupTests(): Promise<void> {
     testDb = getTestDatabaseInstance(logger);
     await setupTestDatabase(testDb);
     queueRepo = createEmailQueueRepository(testDb.db);
+    templateRepo = createEmailTemplateRepository(testDb.db);
+    throttleRepo = createThrottleRepository(testDb.db);
 
     // Start server
     const { startTestServer, TEST_CRON_SECRET } = await import("./test-server.js");

@@ -16,8 +16,8 @@ import { createContext, type Context } from "../context/index.js";
 import { resolvers } from "../resolvers/index.js";
 import { initSQLiteDatabase, closeSQLiteDatabase } from "@agilehead/taptap-db";
 import { createEmailQueueRepository } from "../queue/repository.js";
-import { createQueueProvider } from "../providers/queue.js";
 import { createThrottleRepository } from "../throttle/index.js";
+import { createEmailTemplateRepository } from "../templates/index.js";
 import {
   createConsoleEmailProvider,
   createSmtpEmailProvider,
@@ -36,11 +36,7 @@ async function startServer(): Promise<void> {
 
     const queueRepo = createEmailQueueRepository(db);
     const throttleRepo = createThrottleRepository(db);
-
-    logger.info(
-      "Initializing queue-based notification provider with throttling...",
-    );
-    const provider = createQueueProvider(queueRepo, throttleRepo);
+    const templateRepo = createEmailTemplateRepository(db);
 
     logger.info(`Initializing email provider (${config.email.provider})...`);
     let emailProvider: EmailProvider;
@@ -109,7 +105,9 @@ async function startServer(): Promise<void> {
       "/graphql",
       expressMiddleware(server, {
         context: () =>
-          Promise.resolve(createContext(provider, emailProvider, queueRepo)),
+          Promise.resolve(
+            createContext(queueRepo, emailProvider, throttleRepo, templateRepo),
+          ),
       }),
     );
 

@@ -1,6 +1,7 @@
 export type ThrottleRecord = {
   id: string;
-  notificationType: string;
+  channel: string;
+  category: string;
   recipientId: string;
   contextId: string;
   lastSentAt: string;
@@ -8,7 +9,8 @@ export type ThrottleRecord = {
 
 export type ThrottleRow = {
   id: string;
-  notification_type: string;
+  channel: string;
+  category: string;
   recipient_id: string;
   context_id: string;
   last_sent_at: string;
@@ -17,7 +19,8 @@ export type ThrottleRow = {
 export function mapRowToDomain(row: ThrottleRow): ThrottleRecord {
   return {
     id: row.id,
-    notificationType: row.notification_type,
+    channel: row.channel,
+    category: row.category,
     recipientId: row.recipient_id,
     contextId: row.context_id,
     lastSentAt: row.last_sent_at,
@@ -26,13 +29,15 @@ export function mapRowToDomain(row: ThrottleRow): ThrottleRecord {
 
 export type ThrottleRepository = {
   isThrottled(
-    notificationType: string,
+    channel: string,
+    category: string,
     recipientId: string,
     contextId: string,
     intervalMs: number,
   ): boolean;
   recordSent(
-    notificationType: string,
+    channel: string,
+    category: string,
     recipientId: string,
     contextId: string,
   ): void;
