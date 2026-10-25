@@ -143,9 +143,13 @@ export default typescript.config(
   // Ignores
   {
     ignores: [
+      "**/.analysis/**",
       "node_modules/**",
       "**/node_modules/**",
       "**/dist/**",
+      "services/taptap/csharp/**/bin/**",
+      "services/taptap/csharp/**/obj/**",
+      "artifacts/**",
       "**/generated/**",
       "scripts/**",
     ],

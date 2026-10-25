@@ -19,6 +19,7 @@ PACKAGES=(
   "taptap-db"
   "taptap-test-utils"
   "taptap-server"
+  "taptap-client"
 )
 
 # Determine if --fix flag is passed
@@ -29,7 +30,8 @@ fi
 
 # Loop through each package and run lint
 for pkg_name in "${PACKAGES[@]}"; do
-  pkg="node/packages/$pkg_name"
+  pkg="services/taptap/node/packages/$pkg_name"
+  if [[ "$pkg_name" == "taptap-server" ]]; then pkg="services/taptap/node/apps/server"; fi
   if [[ ! -d "$pkg" ]]; then
     echo "Package $pkg not found, skipping."
     continue

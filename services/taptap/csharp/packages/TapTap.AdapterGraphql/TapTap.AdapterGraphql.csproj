@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../TapTap.Domain/TapTap.Domain.csproj" />
+    <ProjectReference Include="../TapTap.Contracts/TapTap.Contracts.csproj" />
+    <PackageReference Include="GraphQL" />
+    <PackageReference Include="GraphQL.SystemTextJson" />
+    <EmbeddedResource Include="../../../node/apps/server/src/schema.graphql" LogicalName="Public.Schema.graphql" />
+  </ItemGroup>
+</Project>

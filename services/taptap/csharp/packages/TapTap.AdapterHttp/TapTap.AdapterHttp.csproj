@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../TapTap.AdapterRuntime/TapTap.AdapterRuntime.csproj" />
+    <ProjectReference Include="../TapTap.AdapterSqlite/TapTap.AdapterSqlite.csproj" />
+    <ProjectReference Include="../TapTap.AdapterGraphql/TapTap.AdapterGraphql.csproj" />
+    <ProjectReference Include="../TapTap.AdapterNotifications/TapTap.AdapterNotifications.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>
