@@ -44,5 +44,10 @@ src/generated/
 .todos/
 .analysis/
 
-# Docker devenv data
-devenv/data/
+# Docker services/taptap/docker/development data
+services/taptap/docker/development/data/
+
+# .NET and native build outputs
+/services/taptap/csharp/**/bin/
+/services/taptap/csharp/**/obj/
+artifacts/

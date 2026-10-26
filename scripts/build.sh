@@ -21,6 +21,7 @@ PACKAGES=(
   "taptap-db"
   "taptap-test-utils"
   "taptap-server"
+  "taptap-client"
 )
 
 # 1 ▸ clean if --clean flag present
@@ -41,7 +42,8 @@ fi
 
 # 3 ▸ build each package that defines a build script, in order
 for pkg_name in "${PACKAGES[@]}"; do
-  pkg="node/packages/$pkg_name"
+  pkg="services/taptap/node/packages/$pkg_name"
+  if [[ "$pkg_name" == "taptap-server" ]]; then pkg="services/taptap/node/apps/server"; fi
   if [[ ! -f "$pkg/package.json" ]]; then
     continue
   fi
@@ -57,7 +59,8 @@ done
 # 4 ▸ verify test files compile with strict mode
 echo "Verifying test files compile with strict mode…"
 for pkg_name in "${PACKAGES[@]}"; do
-  pkg="node/packages/$pkg_name"
+  pkg="services/taptap/node/packages/$pkg_name"
+  if [[ "$pkg_name" == "taptap-server" ]]; then pkg="services/taptap/node/apps/server"; fi
   if [[ ! -f "$pkg/package.json" ]]; then
     continue
   fi
@@ -83,4 +86,4 @@ if [[ "$*" == *--migrate* ]]; then
 fi
 
 echo "=== Build completed successfully ==="
-echo "To start the application, run: ./scripts/start.sh"
+echo "To start the application, run: ./services/taptap/scripts/start.sh"

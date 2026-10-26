@@ -17,6 +17,44 @@ NEVER USE sed TO BULK REPLACE
 
 This file provides guidance to Claude Code when working with the TapTap notification service.
 
+## Service-owned layout
+
+The repository follows Ctlflow's product ownership model. The repository root owns workspace configuration, build orchestration and documentation. Product source, database assets, operations and acceptance tests belong to `services/taptap/`. The existing Node implementation retains its behavior and package contracts; it is explicitly selected for comparison and is never a C# fallback.
+
+```text
+services/taptap/
+  package.json
+  node/
+    apps/                     Existing Node application composition roots
+    packages/                 Existing Node libraries and client SDKs
+    tests/                    Node service tests and support
+    Dockerfile
+  csharp/
+    apps/                     Thin native/managed application roots
+    packages/                 Kernel, domain, contracts and adapters
+    tests/                    C# probes and regression assertions
+    build/                    Build-only EF compiler and design-time host
+    scripts/                  C# generation/publication tools
+    Dockerfile
+  database/taptap/sqlite/   Existing Knex migrations and seed assets
+  knexfile.taptap.mjs
+  docker/                     Development and production configuration
+  scripts/                    Shared product generators, operations and acceptance
+  tests/contracts/            One cross-runtime assertion bank
+```
+
+Only implemented capabilities receive directories. Public package names, wire contracts, migration filenames/history, stored bytes and media paths remain unchanged. No production data is moved or reset by the source reorganization.
+
+`npm run verify:structure` checks workspace ownership, required service roots, solution project paths and the absence of the superseded repository-wide source pools. The build runs this check. Product-specific commands are under `services/taptap/scripts/`; root npm commands remain the workspace entry points. Knex alone owns schema changes; moving its source does not run migrations.
+
+## Canonical server architecture
+
+The application server is C# / NativeAOT under `services/taptap/csharp/`, with the same apps/packages/build/scripts/tests structure and pinned build infrastructure as Snapped. Read `README.md` and `services/taptap/csharp/README.md` for current commands and architecture. The Node server is retained for explicit comparison, not as a runtime fallback. The TypeScript client SDK and Knex migrations remain Node-owned.
+
+C# uses functional static modules, immutable domain records, function-delegate persistence ports, `Result<T>`, cancellation and `IUnitOfWork.Run`. Classes are used where EF, ASP.NET, GraphQL or provider frameworks require them. Database queries use EF LINQ in C# and Tinqer in Node; handwritten runtime SQL is forbidden. Generated EF rows are separate from domain records. Existing database schema and representations are preserved; queue IDs remain hexadecimal strings.
+
+Required verification: `npm run build`, `npm run lint`, `npm run build:native`, `npm test`, then `npm run test:integration`. Execute real NativeAOT binaries and both Docker variants; successful managed tests alone are insufficient. Never run broad process killers for acceptance. Keep private `.analysis/` notes ignored and preserve production data. Do not publish, deploy or push without the applicable user authorization.
+
 ## Critical Guidelines
 
 ### NEVER ACT WITHOUT EXPLICIT USER APPROVAL
@@ -43,9 +81,9 @@ This file provides guidance to Claude Code when working with the TapTap notifica
 
 **CRITICAL**: ALL tests must pass in BOTH local mode AND Docker Compose mode before committing.
 
-- Run `./scripts/test-integration.sh local` and verify all tests pass
-- Run `./scripts/test-integration.sh compose` and verify all tests pass in Docker
-- If Docker Compose tests fail due to schema changes, rebuild Docker images first: `./scripts/docker-build.sh`
+- Run `./services/taptap/scripts/test-integration.sh local` and verify all tests pass
+- Run `./services/taptap/scripts/test-integration.sh compose` and verify all tests pass in Docker
+- If Docker Compose tests fail due to schema changes, rebuild Docker images first: `./services/taptap/scripts/docker-build.sh`
 - No exceptions - if tests fail, fix them before committing
 
 ### NEVER BLAME "PRE-EXISTING FAILURES"
@@ -115,7 +153,7 @@ TapTap is a standalone notification service. It accepts notification requests vi
 
 **Code Principles:**
 
-- **NO CLASSES** - Use functional style with strict types
+- **FUNCTIONAL MODULES** - Use strict types; C# framework-bound classes are permitted as described above
 - **NO DYNAMIC IMPORTS** - Always use static imports
 - **PREFER FUNCTIONS** - Export functions from modules
 - **USE RESULT TYPES** - For error handling
@@ -180,7 +218,7 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 ### Database Conventions
 
 - **SQLite** for development/initial deployment (via Tinqer)
-- **All SQL via Tinqer** - Never write raw SQL
+- **Persistence** - EF LINQ in C#; Tinqer in Node; never write runtime SQL
 - **Raw SQL exception**: UPSERT (`INSERT ... ON CONFLICT ... UPDATE`) where Tinqer lacks support. Use `@param` binding syntax for better-sqlite3.
 - **Repository Pattern** - Types with SQLite implementation
 - **Singular table names**: lowercase (e.g., `email_queue`, `email_template`, `throttle`)
@@ -215,7 +253,7 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 ./scripts/clean.sh
 
 # Start server
-./scripts/start.sh
+./services/taptap/scripts/start.sh
 
 # Lint entire project
 ./scripts/lint-all.sh           # Run ESLint on all packages
@@ -225,11 +263,11 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 ./scripts/format-all.sh
 
 # Docker commands
-./scripts/docker-build.sh       # Build Docker images (taptap-migrations, taptap)
+./services/taptap/scripts/docker-build.sh       # Build Docker images (taptap-migrations, taptap)
 
 # Integration tests
-./scripts/test-integration.sh local    # Run tests with local server
-./scripts/test-integration.sh compose  # Run tests against Docker Compose
+./services/taptap/scripts/test-integration.sh local    # Run tests with local server
+./services/taptap/scripts/test-integration.sh compose  # Run tests against Docker Compose
 ```
 
 ### Monitoring Long-Running Operations
@@ -294,7 +332,7 @@ After pushing a feature branch, provide this URL to the user so they can create 
 
 ```
 taptap/
-├── node/                    # Monorepo packages
+├── services/taptap/node/                    # Monorepo packages
 │   └── packages/
 │       ├── taptap-server/   # GraphQL API server
 │       ├── taptap-db/       # Database layer

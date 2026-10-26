@@ -5,18 +5,32 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "node/packages/*"
+    "services/*",
+    "services/*/apps/*",
+    "services/*/node/apps/*",
+    "services/*/node/packages/*"
   ],
   "scripts": {
-    "build": "./scripts/build.sh",
+    "build": "npm run verify:structure && ./scripts/build.sh --no-format && node services/taptap/csharp/scripts/generate-model.mjs --check && dotnet build TapTap.CSharp.slnx --disable-build-servers -m:1 -p:UseSharedCompilation=false",
     "clean": "./scripts/clean.sh",
-    "start": "./scripts/start.sh",
-    "test": "cd node/packages/taptap-server && npm test",
-    "test:grep": "cd node/packages/taptap-server && npm run test:grep",
-    "migrate:taptap:latest": "knex migrate:latest --knexfile database/taptap/knexfile.js",
-    "migrate:taptap:rollback": "knex migrate:rollback --knexfile database/taptap/knexfile.js",
-    "migrate:taptap:status": "knex migrate:status --knexfile database/taptap/knexfile.js",
-    "migrate:taptap:make": "knex migrate:make --knexfile database/taptap/knexfile.js"
+    "start": "./services/taptap/scripts/start.sh",
+    "test": "node services/taptap/scripts/test-services.mjs && node services/taptap/scripts/test-smtp.mjs",
+    "test:grep": "cd services/taptap/node/apps/server && npm run test:grep",
+    "migrate:taptap:latest": "knex migrate:latest --knexfile services/taptap/knexfile.taptap.mjs",
+    "migrate:taptap:rollback": "knex migrate:rollback --knexfile services/taptap/knexfile.taptap.mjs",
+    "migrate:taptap:status": "knex migrate:status --knexfile services/taptap/knexfile.taptap.mjs",
+    "migrate:taptap:make": "knex migrate:make --knexfile services/taptap/knexfile.taptap.mjs",
+    "build:native": "node services/taptap/csharp/scripts/publish-native.mjs",
+    "lint": "./scripts/lint-all.sh && ./node_modules/.bin/eslint \"services/taptap/**/*.mjs\"",
+    "test:node": "cd services/taptap/node/apps/server && npm test",
+    "test:contracts": "node services/taptap/scripts/test-services.mjs",
+    "format": "./scripts/format-all.sh",
+    "generate:model": "node services/taptap/csharp/scripts/generate-model.mjs",
+    "test:integration": "./services/taptap/scripts/test-integration.sh compose",
+    "start:node": "./services/taptap/scripts/start.sh node",
+    "test:smtp": "node services/taptap/scripts/test-smtp.mjs",
+    "start:nativeaot": "./services/taptap/scripts/start.sh nativeaot",
+    "verify:structure": "node scripts/verify-structure.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -26,7 +40,6 @@
     "chai": "^5.1.2",
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
-    "knex": "^3.1.0",
     "mocha": "^10.8.2",
     "prettier": "^3.4.2",
     "typescript": "^5.9.2",
@@ -34,7 +47,8 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "knex": "^3.1.0"
   },
   "engines": {
     "node": ">=22.0.0"

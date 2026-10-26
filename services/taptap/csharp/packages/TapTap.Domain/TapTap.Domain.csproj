@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../TapTap.Kernel/TapTap.Kernel.csproj" />
+  </ItemGroup>
+</Project>

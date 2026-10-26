@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/taptap/">
+    <Project Path="services/taptap/csharp/apps/TapTap.Server/TapTap.Server.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.AdapterGraphql/TapTap.AdapterGraphql.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.AdapterHttp/TapTap.AdapterHttp.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.AdapterNotifications/TapTap.AdapterNotifications.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.AdapterRuntime/TapTap.AdapterRuntime.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.AdapterSqlite/TapTap.AdapterSqlite.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.Contracts/TapTap.Contracts.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.Domain/TapTap.Domain.csproj" />
+    <Project Path="services/taptap/csharp/packages/TapTap.Kernel/TapTap.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/build/">
+    <Project Path="services/taptap/csharp/build/TapTap.EfCompiler/TapTap.EfCompiler.csproj" />
+    <Project Path="services/taptap/csharp/build/TapTap.EfHost/TapTap.EfHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="services/taptap/csharp/tests/TapTap.ContractProbe/TapTap.ContractProbe.csproj" />
+  </Folder>
+</Solution>
