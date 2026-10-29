@@ -7,7 +7,6 @@
   "workspaces": [
     "services/*",
     "services/*/apps/*",
-    "services/*/node/apps/*",
     "services/*/node/packages/*"
   ],
   "scripts": {
@@ -15,19 +14,16 @@
     "clean": "./scripts/clean.sh",
     "start": "./services/taptap/scripts/start.sh",
     "test": "node services/taptap/scripts/test-services.mjs && node services/taptap/scripts/test-smtp.mjs",
-    "test:grep": "cd services/taptap/node/apps/server && npm run test:grep",
     "migrate:taptap:latest": "knex migrate:latest --knexfile services/taptap/knexfile.taptap.mjs",
     "migrate:taptap:rollback": "knex migrate:rollback --knexfile services/taptap/knexfile.taptap.mjs",
     "migrate:taptap:status": "knex migrate:status --knexfile services/taptap/knexfile.taptap.mjs",
     "migrate:taptap:make": "knex migrate:make --knexfile services/taptap/knexfile.taptap.mjs",
     "build:native": "node services/taptap/csharp/scripts/publish-native.mjs",
     "lint": "./scripts/lint-all.sh && ./node_modules/.bin/eslint \"services/taptap/**/*.mjs\"",
-    "test:node": "cd services/taptap/node/apps/server && npm test",
     "test:contracts": "node services/taptap/scripts/test-services.mjs",
     "format": "./scripts/format-all.sh",
     "generate:model": "node services/taptap/csharp/scripts/generate-model.mjs",
     "test:integration": "./services/taptap/scripts/test-integration.sh compose",
-    "start:node": "./services/taptap/scripts/start.sh node",
     "test:smtp": "node services/taptap/scripts/test-smtp.mjs",
     "start:nativeaot": "./services/taptap/scripts/start.sh nativeaot",
     "verify:structure": "node scripts/verify-structure.mjs"
@@ -35,12 +31,10 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/chai": "^5.0.2",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.5",
     "chai": "^5.1.2",
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
-    "mocha": "^10.8.2",
     "prettier": "^3.4.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.19.1"
@@ -64,5 +58,9 @@
     "typescript"
   ],
   "author": "Agilehead",
-  "license": "MIT"
+  "license": "MIT",
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true,
+    "esbuild@0.27.2": true
+  }
 }

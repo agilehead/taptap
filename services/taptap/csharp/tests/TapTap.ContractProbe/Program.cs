@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using TapTap.AdapterSqlite;
 using TapTap.Domain.Templates;
 using TapTap.Domain.Queue;
@@ -22,6 +23,16 @@ var templates = TapTap.AdapterSqlite.Templates.Templates.Create(db, clock);
 var queue = TapTap.AdapterSqlite.Queue.Queue.Create(db, clock);
 var throttles = TapTap.AdapterSqlite.Throttling.Throttling.Create(db, clock);
 var ct = CancellationToken.None;
+using var variables = JsonDocument.Parse("{\"name\":\"Alice\",\"app\":\"TapTap\",\"price\":\"$10.00 (USD)\"}");
+using var emptyVariables = JsonDocument.Parse("{}");
+Check(TemplateRendering.Render("Hello {{name}}, welcome to {{app}}!", variables.RootElement) == "Hello Alice, welcome to TapTap!", "template substitutions");
+Check(TemplateRendering.Render("Hello {{name}}, order {{missing}}", variables.RootElement) == "Hello Alice, order ", "missing template variable");
+Check(TemplateRendering.Render("Hello {{name}}!", emptyVariables.RootElement) == "Hello !", "empty template variables");
+Check(TemplateRendering.Render("Hello world!", variables.RootElement) == "Hello world!", "template without placeholders");
+Check(TemplateRendering.Render("", variables.RootElement) == "", "empty template");
+Check(TemplateRendering.Render("{{name}} said hello to {{name}}", variables.RootElement) == "Alice said hello to Alice", "repeated placeholders");
+Check(TemplateRendering.Render("Hello {name} and {{name}}", variables.RootElement) == "Hello {name} and Alice", "malformed placeholder remains literal");
+Check(TemplateRendering.Render("Price: {{price}}", variables.RootElement) == "Price: $10.00 (USD)", "special characters in values");
 var created = await templates.Create(new TemplateInput("probe-template", "Subject 東京", "<p>{{name}}</p>", "Hello"), ct);
 Check(created.IsSuccess && created.Value.CreatedAt == "2026-10-25T12:00:00.000Z", "template timestamp representation");
 Check(!(await templates.Create(new TemplateInput("probe-template", "duplicate", "html", "text"), ct)).IsSuccess, "unique constraint failure returns Result");
@@ -59,6 +70,8 @@ Check((await throttles.IsThrottled(key, 60000, ct)).Value, "recent throttle");
 Check(!(await throttles.IsThrottled(key, 0, ct)).Value, "expired throttle");
 Check(!(await throttles.IsThrottled(key with { ContextId = "other" }, 60000, ct)).Value, "context isolation");
 Check(!(await throttles.IsThrottled(key with { RecipientId = "other" }, 60000, ct)).Value, "recipient isolation");
+Check(!(await throttles.IsThrottled(key with { Category = "other" }, 60000, ct)).Value, "category isolation");
+Check(!(await throttles.IsThrottled(key with { Channel = "other" }, 60000, ct)).Value, "channel isolation");
 Check((await db.Throttle.AsNoTracking().FirstAsync(row => row.Id == key.Id, ct)).LastSentAt == clock.IsoNow(), "throttle stored timestamp");
 var unit = new UnitOfWork(db);
 var rolledBack = await unit.Run<Unit>(async token =>
@@ -99,6 +112,16 @@ var interrupted = queue with
 };
 var partial = await QueueProcessor.Run(interrupted, new EmailProvider("success", (_, _) => Task.FromResult(Result<string>.Success("id"))), options, ct);
 Check(!partial.Outcome.IsSuccess && partial is { Processed: 2, Sent: 1, Failed: 0 }, "infrastructure failure preserves prior batch progress");
+for (var index = 0; index < 5; index++)
+    Check((await queue.Create(new QueueInput($"probe-limit-{index}", null, "u", "u@example.test", "u", "s", "h", "t", null, null), ct)).IsSuccess, "create pending queue item");
+Check((await queue.Pending(3, ct)).Value.Count == 3, "multiple pending items respect limit");
+var batch = await QueueProcessor.Run(queue, new EmailProvider("batch", (_, _) => Task.FromResult(Result<string>.Success("id"))),
+    new ProcessorOptions(3, 3, "from@example.test", "From"), ct);
+Check(batch.Outcome.IsSuccess && batch is { Processed: 3, Sent: 3, Failed: 0 }, "process a bounded batch");
+Check((await queue.Pending(10, ct)).Value.Count == 2, "excess pending items remain for the next batch");
+batch = await QueueProcessor.Run(queue, new EmailProvider("batch", (_, _) => Task.FromResult(Result<string>.Success("id"))), options, ct);
+Check(batch.Outcome.IsSuccess && batch is { Processed: 2, Sent: 2, Failed: 0 }, "process remaining batch");
+Check((await queue.Pending(10, ct)).Value.Count == 0, "sent items are excluded from pending");
 Console.WriteLine($"TapTap storage/service probe: {assertions} assertions passed");
 
 return 0;

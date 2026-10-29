@@ -8,9 +8,6 @@ docker compose -f services/taptap/docker/development/docker-compose.yml stop tap
 while read -r pid executable arguments; do
   [[ "$(readlink "/proc/$pid/cwd" 2>/dev/null || true)" == "$ROOT_DIR" ]] || continue
   case "$executable" in
-    node|*/node)
-      [[ "$arguments" == *"services/taptap/node/apps/server/dist/bin/server.js"* ]] || continue
-      ;;
     dotnet|*/dotnet)
       [[ "$arguments" == *"services/taptap/csharp/apps/TapTap.Server/"*"TapTap.Server.dll"* ]] || continue
       ;;

@@ -51,3 +51,6 @@ services/taptap/docker/development/data/
 /services/taptap/csharp/**/bin/
 /services/taptap/csharp/**/obj/
 artifacts/
+
+# Private local notes at every depth.
+**/.analysis/

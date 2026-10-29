@@ -16,9 +16,7 @@ echo "=== Linting TapTap ==="
 # Define the package order
 PACKAGES=(
   "taptap-logger"
-  "taptap-db"
   "taptap-test-utils"
-  "taptap-server"
   "taptap-client"
 )
 
@@ -31,7 +29,6 @@ fi
 # Loop through each package and run lint
 for pkg_name in "${PACKAGES[@]}"; do
   pkg="services/taptap/node/packages/$pkg_name"
-  if [[ "$pkg_name" == "taptap-server" ]]; then pkg="services/taptap/node/apps/server"; fi
   if [[ ! -d "$pkg" ]]; then
     echo "Package $pkg not found, skipping."
     continue

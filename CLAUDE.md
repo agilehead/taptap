@@ -19,16 +19,13 @@ This file provides guidance to Claude Code when working with the TapTap notifica
 
 ## Service-owned layout
 
-The repository follows Ctlflow's product ownership model. The repository root owns workspace configuration, build orchestration and documentation. Product source, database assets, operations and acceptance tests belong to `services/taptap/`. The existing Node implementation retains its behavior and package contracts; it is explicitly selected for comparison and is never a C# fallback.
+The repository follows Ctlflow's product ownership model. The repository root owns workspace configuration, build orchestration and documentation. Product source, database assets, operations and acceptance tests belong to `services/taptap/`.
 
 ```text
 services/taptap/
   package.json
   node/
-    apps/                     Existing Node application composition roots
-    packages/                 Existing Node libraries and client SDKs
-    tests/                    Node service tests and support
-    Dockerfile
+    packages/                 TypeScript client and test tooling
   csharp/
     apps/                     Thin native/managed application roots
     packages/                 Kernel, domain, contracts and adapters
@@ -36,7 +33,8 @@ services/taptap/
     build/                    Build-only EF compiler and design-time host
     scripts/                  C# generation/publication tools
     Dockerfile
-  database/taptap/sqlite/   Existing Knex migrations and seed assets
+  database/taptap/sqlite/   Database contract and existing Knex migrations
+  contracts/graphql/        Shared GraphQL schema
   knexfile.taptap.mjs
   docker/                     Development and production configuration
   scripts/                    Shared product generators, operations and acceptance
@@ -49,9 +47,9 @@ Only implemented capabilities receive directories. Public package names, wire co
 
 ## Canonical server architecture
 
-The application server is C# / NativeAOT under `services/taptap/csharp/`, with the same apps/packages/build/scripts/tests structure and pinned build infrastructure as Snapped. Read `README.md` and `services/taptap/csharp/README.md` for current commands and architecture. The Node server is retained for explicit comparison, not as a runtime fallback. The TypeScript client SDK and Knex migrations remain Node-owned.
+The application server is C# under `services/taptap/csharp/`, with the same apps/packages/build/scripts/tests structure and pinned build infrastructure as Snapped. Managed .NET and NativeAOT use the same source. Read `README.md` and `services/taptap/csharp/README.md` for current commands and architecture. The TypeScript client SDK and Knex migrations remain Node-owned.
 
-C# uses functional static modules, immutable domain records, function-delegate persistence ports, `Result<T>`, cancellation and `IUnitOfWork.Run`. Classes are used where EF, ASP.NET, GraphQL or provider frameworks require them. Database queries use EF LINQ in C# and Tinqer in Node; handwritten runtime SQL is forbidden. Generated EF rows are separate from domain records. Existing database schema and representations are preserved; queue IDs remain hexadecimal strings.
+C# uses functional static modules, immutable domain records, function-delegate persistence ports, `Result<T>`, cancellation and `IUnitOfWork.Run`. Classes are used where EF, ASP.NET, GraphQL or provider frameworks require them. Database queries use EF LINQ; handwritten runtime SQL is forbidden. Generated EF rows are separate from domain records. Existing database schema and representations are preserved; queue IDs remain hexadecimal strings.
 
 Required verification: `npm run build`, `npm run lint`, `npm run build:native`, `npm test`, then `npm run test:integration`. Execute real NativeAOT binaries and both Docker variants; successful managed tests alone are insufficient. Never run broad process killers for acceptance. Keep private `.analysis/` notes ignored and preserve production data. Do not publish, deploy or push without the applicable user authorization.
 
@@ -180,7 +178,7 @@ function required(name: string): string {
 const host = required("TAPTAP_SERVER_HOST");
 ```
 
-All environment variables must be validated at startup in `src/config.ts`. The application should fail immediately if required variables are missing.
+All required environment variables must be validated at application startup. The application should fail immediately if required variables are missing.
 
 ### Linting and Code Quality Standards
 
@@ -217,10 +215,8 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 
 ### Database Conventions
 
-- **SQLite** for development/initial deployment (via Tinqer)
-- **Persistence** - EF LINQ in C#; Tinqer in Node; never write runtime SQL
-- **Raw SQL exception**: UPSERT (`INSERT ... ON CONFLICT ... UPDATE`) where Tinqer lacks support. Use `@param` binding syntax for better-sqlite3.
-- **Repository Pattern** - Types with SQLite implementation
+- **SQLite** for persistence, using EF LINQ in the C# application
+- **Repository Pattern** - Functional ports with a SQLite implementation
 - **Singular table names**: lowercase (e.g., `email_queue`, `email_template`, `throttle`)
 - **Column names**: snake_case for all columns
 - **Random hex IDs** for queue items (`randomBytes(10).toString("hex").substring(0, 16)`)
@@ -236,9 +232,8 @@ When you encounter linting, type, or test errors, the solution is ALWAYS to fix 
 
 ### GraphQL Architecture
 
-- **Single schema file** (`src/schema.graphql`)
-- **Type generation** with graphql-codegen
-- **Context pattern** for database and services
+- **Single schema file** (`services/taptap/contracts/graphql/public/schema.graphql`)
+- **C# GraphQL adapter** for API execution
 
 ## Essential Commands & Workflow
 
@@ -295,8 +290,9 @@ npm run migrate:taptap:rollback
 # Run all tests
 npm test
 
-# Run specific tests
-npm run test:grep -- "pattern to match"
+# Run acceptance against a selected implementation
+node services/taptap/scripts/test-services.mjs csharp
+node services/taptap/scripts/test-services.mjs nativeaot
 ```
 
 ### Git Workflow
@@ -330,21 +326,7 @@ After pushing a feature branch, provide this URL to the user so they can create 
 
 ### Project Structure
 
-```
-taptap/
-├── services/taptap/node/                    # Monorepo packages
-│   └── packages/
-│       ├── taptap-server/   # GraphQL API server
-│       ├── taptap-db/       # Database layer
-│       ├── taptap-logger/   # Structured logging
-│       └── taptap-test-utils/ # Test utilities
-├── database/                # Migrations
-│   └── taptap/
-│       ├── knexfile.js      # Knex configuration
-│       └── migrations/      # SQLite migrations
-├── scripts/                 # Build and utility scripts
-└── docs/                    # Documentation
-```
+See the service-owned layout above for the current application, client, database, contracts and test owners.
 
 ### Temporary Directories (gitignored)
 
@@ -363,26 +345,7 @@ These directories are excluded from git and used for temporary data:
 
 ### Repository Pattern
 
-```typescript
-// Type definition
-export type EmailQueueRepository = {
-  create(data: CreateEmailQueueItem): EmailQueueItem;
-  findPending(limit: number): EmailQueueItem[];
-  markSending(id: string): void;
-  markSent(id: string): void;
-  markFailed(id: string, error: string, maxAttempts: number): void;
-};
-
-// Factory function
-export function createEmailQueueRepository(db: SQLiteDatabase): EmailQueueRepository {
-  return {
-    create(data) {
-      // Tinqer query implementation
-    },
-    // ...
-  };
-}
-```
+The domain owns immutable function-delegate ports; the SQLite adapter implements them using EF LINQ and returns `Result<T>`.
 
 ## Environment Variables
 
@@ -419,65 +382,17 @@ See `.env.example` for complete list. Key variables:
 - `LOG_LEVEL` - Log level (default: info)
 - `TAPTAP_LOG_FILE_DIR` - Directory for log files (optional)
 
-## Code Patterns
-
-### Import Patterns
-
-```typescript
-// Always include .js extension
-import { createEmailQueueRepository } from "./queue/repository.js";
-import type { EmailQueueItem } from "./queue/types.js";
-```
-
-### Result Type Pattern
-
-```typescript
-export type SendResult = {
-  success: boolean;
-  error?: string;
-};
-```
-
-### Tinqer Query Pattern
-
-```typescript
-import { executeSelect } from "@tinqerjs/better-sqlite3-adapter";
-import { schema, type SQLiteDatabase } from "@agilehead/taptap-db";
-
-export function findPending(db: SQLiteDatabase, limit: number): EmailQueueItem[] {
-  const rows = executeSelect(
-    db,
-    schema,
-    (q, p) =>
-      q
-        .from("email_queue")
-        .where((e) => e.status === p.status)
-        .orderBy((e) => e.created_at)
-        .take(p.limit),
-    { status: "pending", limit },
-  );
-
-  return rows.map((row) => mapRowToDomain(row as unknown as EmailQueueRow));
-}
-```
-
 ## Testing Strategy
 
 ### Unit Tests
 
-- Template rendering (`render.test.ts`)
-- Queue repository functions (`repository.test.ts`)
-- Throttle repository functions (`repository.test.ts`)
+- The C# contract probe checks template rendering, queue and throttle storage, retry and batch processing, and provider failures.
 
 ### Integration Tests
 
-- Template CRUD via GraphQL (`template.test.ts`)
-- `sendEmail` and `sendRawEmail` mutations (`send-email.test.ts`, `send-raw-email.test.ts`)
-- Queue processor with cron endpoint (`processor.test.ts`)
-- Health check (`health.test.ts`)
+- Shared HTTP contracts cover template CRUD, sending, throttling, queue processing and health against each C# runtime.
+- SMTP acceptance covers authenticated delivery, failure and retry over plaintext, STARTTLS and TLS.
 
 ### Test Infrastructure
 
-- Tests run against a local test server (port 5016) or an external Docker container
-- `truncateAllTables()` clears all tables between tests
-- `TEST_URL` and `TEST_DB_PATH` env vars for external mode (Docker Compose)
+- Acceptance uses disposable Knex-migrated databases and runs against both managed .NET and actual NativeAOT, locally and in Docker.
