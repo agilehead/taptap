@@ -28,6 +28,8 @@ export type DatabaseSchema = {
     last_error: string | null;
     created_at: string;
     sent_at: string | null;
+    lease_owner: string | null;
+    lease_until: number | null;
   };
 
   // Throttle - shared across channels

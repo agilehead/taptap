@@ -51,17 +51,22 @@ var first = await queue.Create(new QueueInput("probe-first", "probe-template", "
 Check(first.IsSuccess && first.Value is { Status: "pending", Attempts: 0, LastError: null, SentAt: null }, "queue initial state");
 var stored = await db.EmailQueue.AsNoTracking().FirstAsync(row => row.Id == "probe-first", ct);
 Check(stored.Metadata == "{\"extra\":1}" && stored.RecipientName == "Name 東京" && stored.TemplateName == "probe-template", "queue byte representations");
-Check((await queue.Pending(1, ct)).Value.Count == 1, "queue limit");
-Check((await queue.MarkSending("probe-first", ct)).IsSuccess, "mark sending");
-Check(!(await queue.Pending(10, ct)).Value.Any(value => value.Id == "probe-first"), "sending excluded from pending");
-await queue.MarkFailed("probe-first", "first failure", 3, ct);
-var retry = (await queue.Pending(10, ct)).Value.Single(value => value.Id == "probe-first");
+Check((await queue.Pending(1, 3, ct)).Value.Count == 1, "queue limit");
+var claim = (await queue.Claim(first.Value, 3, ct)).Value!;
+Check(claim is not null, "atomic claim");
+Check((await queue.Claim(first.Value, 3, ct)).Value is null, "another worker cannot claim sending item");
+Check(!(await queue.Pending(10, 3, ct)).Value.Any(value => value.Id == "probe-first"), "sending excluded from pending");
+await queue.MarkFailed(claim!, "first failure", 3, ct);
+var retry = (await queue.Pending(10, 3, ct)).Value.Single(value => value.Id == "probe-first");
 Check(retry is { Attempts: 1, LastError: "first failure", Status: "pending" }, "first failure retry");
-await queue.MarkFailed("probe-first", "second failure", 3, ct);
-await queue.MarkFailed("probe-first", "third failure", 3, ct);
+Check((await queue.Claim(first.Value, 3, ct)).Value is null, "stale pending snapshot cannot retry an attempted item");
+claim = (await queue.Claim(retry, 3, ct)).Value!;
+await queue.MarkFailed(claim, "second failure", 3, ct);
+claim = (await queue.Claim((await queue.Pending(1, 3, ct)).Value.Single(), 3, ct)).Value!;
+await queue.MarkFailed(claim, "third failure", 3, ct);
 stored = await db.EmailQueue.AsNoTracking().FirstAsync(row => row.Id == "probe-first", ct);
 Check(stored is { Status: "failed", Attempts: 3, LastError: "third failure" }, "max attempts terminal state");
-Check((await queue.MarkFailed("missing-queue", "error", 3, ct)).IsSuccess, "missing failure no-op");
+Check(!(await queue.MarkFailed(claim, "late failure", 3, ct)).IsSuccess, "completed claim cannot mutate a terminal item");
 var key = new ThrottleKey("email", "category", "user", "context");
 Check(!(await throttles.IsThrottled(key, 60000, ct)).Value, "new throttle");
 Check((await throttles.Record(key, ct)).IsSuccess, "record throttle");
@@ -96,32 +101,33 @@ Check(sent.Outcome.IsSuccess && sent is { Processed: 1, Sent: 1, Failed: 0 }, "p
 Check(delivered is { Subject: "Subject", Html: "html", Text: "text", From.Email: "from@example.test" }
     && delivered.To.Single().Email == "user@example.test", "provider payload");
 stored = await db.EmailQueue.AsNoTracking().FirstAsync(row => row.Id == "probe-process", ct);
-Check(stored is { Status: "sent", Attempts: 2 } && stored.SentAt == clock.IsoNow(), "sent storage and retry count");
+Check(stored is { Status: "sent", Attempts: 3 } && stored.SentAt == clock.IsoNow(), "sent storage and retry count");
 Check((await QueueProcessor.Run(queue, new EmailProvider("unused", (_, _) => throw new InvalidOperationException()), options, ct)).Processed == 0, "empty queue");
 Check((await templates.Delete("probe-template", ct)).Value, "delete template");
-var unavailable = queue with { Pending = (_, _) => Task.FromResult(Result<IReadOnlyList<QueueItem>>.Failed("INFRASTRUCTURE", "read failed")) };
+var unavailable = queue with { Pending = (_, _, _) => Task.FromResult(Result<IReadOnlyList<QueueItem>>.Failed("INFRASTRUCTURE", "read failed")) };
 var unread = await QueueProcessor.Run(unavailable, new EmailProvider("unused", (_, _) => throw new InvalidOperationException()), options, ct);
 Check(!unread.Outcome.IsSuccess && unread is { Processed: 0, Sent: 0, Failed: 0 }, "pending read failure reports zero progress and explicit failure");
 var sample = new QueueItem("first", null, "pending", "user", "u@example.test", "U", "s", "h", "t", null, null, 0, null, clock.IsoNow(), null);
 var interrupted = queue with
 {
-    Pending = (_, _) => Task.FromResult(Result<IReadOnlyList<QueueItem>>.Success([sample, sample with { Id = "second" }])),
-    MarkSending = (_, _) => Task.FromResult(Result<Unit>.Success(new Unit())),
-    MarkSent = (id, _) => Task.FromResult(id == "first" ? Result<Unit>.Success(new Unit()) : Result<Unit>.Failed("INFRASTRUCTURE", "write failed")),
+    Pending = (_, _, _) => Task.FromResult(Result<IReadOnlyList<QueueItem>>.Success([sample, sample with { Id = "second" }])),
+    Claim = (item, _, _) => Task.FromResult(Result<QueueClaim?>.Success(new(item, "owner"))),
+    MarkSent = (claim, _) => Task.FromResult(claim.Item.Id == "first" ? Result<Unit>.Success(new Unit()) : Result<Unit>.Failed("INFRASTRUCTURE", "write failed")),
     MarkFailed = (_, _, _, _) => Task.FromResult(Result<Unit>.Failed("INFRASTRUCTURE", "failure recording unavailable"))
 };
 var partial = await QueueProcessor.Run(interrupted, new EmailProvider("success", (_, _) => Task.FromResult(Result<string>.Success("id"))), options, ct);
 Check(!partial.Outcome.IsSuccess && partial is { Processed: 2, Sent: 1, Failed: 0 }, "infrastructure failure preserves prior batch progress");
 for (var index = 0; index < 5; index++)
     Check((await queue.Create(new QueueInput($"probe-limit-{index}", null, "u", "u@example.test", "u", "s", "h", "t", null, null), ct)).IsSuccess, "create pending queue item");
-Check((await queue.Pending(3, ct)).Value.Count == 3, "multiple pending items respect limit");
+Check((await queue.Pending(3, 3, ct)).Value.Count == 3, "multiple pending items respect limit");
 var batch = await QueueProcessor.Run(queue, new EmailProvider("batch", (_, _) => Task.FromResult(Result<string>.Success("id"))),
     new ProcessorOptions(3, 3, "from@example.test", "From"), ct);
 Check(batch.Outcome.IsSuccess && batch is { Processed: 3, Sent: 3, Failed: 0 }, "process a bounded batch");
-Check((await queue.Pending(10, ct)).Value.Count == 2, "excess pending items remain for the next batch");
+Check((await queue.Pending(10, 3, ct)).Value.Count == 2, "excess pending items remain for the next batch");
 batch = await QueueProcessor.Run(queue, new EmailProvider("batch", (_, _) => Task.FromResult(Result<string>.Success("id"))), options, ct);
 Check(batch.Outcome.IsSuccess && batch is { Processed: 2, Sent: 2, Failed: 0 }, "process remaining batch");
-Check((await queue.Pending(10, ct)).Value.Count == 0, "sent items are excluded from pending");
+Check((await queue.Pending(10, 3, ct)).Value.Count == 0, "sent items are excluded from pending");
+await QueueLeaseProbe.Run(Path.GetFullPath(args[0]), Check);
 Console.WriteLine($"TapTap storage/service probe: {assertions} assertions passed");
 
 return 0;

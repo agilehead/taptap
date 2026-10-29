@@ -48,6 +48,8 @@ public sealed partial class TapTapDbContext : DbContext
             entity.Property(row => row.LastError).HasColumnName("last_error");
             entity.Property(row => row.CreatedAt).HasColumnName("created_at");
             entity.Property(row => row.SentAt).HasColumnName("sent_at");
+            entity.Property(row => row.LeaseOwner).HasColumnName("lease_owner");
+            entity.Property(row => row.LeaseUntil).HasColumnName("lease_until");
         });
         modelBuilder.Entity<ThrottleRow>(entity =>
         {

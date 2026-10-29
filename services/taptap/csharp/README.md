@@ -30,6 +30,24 @@ The executable delegates startup to the HTTP host. Domain feature modules own im
 
 ## Storage
 
+Queue workers atomically claim each candidate using its ID and observed attempt
+count. Claims have a unique owner and a two-minute expiry; SMTP has a one-minute
+deadline. Only that unexpired owner can record success/failure. Overlapping
+workers skip lost claims, including stale candidates that another worker already
+attempted. Attempts count sends started, before the provider call, so interrupted
+sends consume the retry budget. Failed and sent rows remain terminal.
+
+Expired sending rows are eligible for retry; exhausted expired claims become
+failed. An acknowledged send whose completion cannot be recorded stays claimed
+until recovery, rather than becoming immediately pending. SMTP acceptance with a
+lost acknowledgement or completion record is ambiguous and recovery can deliver
+again; exactly-once delivery is not promised.
+
+`20261029000001_queue_delivery_leases.js` is a forward Knex migration. Stop old
+workers before applying it after a verified backup. Pre-lease sending rows are
+marked expired and consume one attempt because their acceptance is unknown.
+No provider call holds a SQLite transaction.
+
 Knex in `services/taptap/database/taptap/sqlite/migrations/` remains the sole schema owner. Startup requires an existing absolute database path, enables WAL through the SQLite provider, and opens read/write connections with foreign keys and a busy timeout. It never creates tables, migrates, resets or seeds the schema. Runtime persistence uses EF LINQ and precompiled native queries; application code contains no handwritten SQL command text.
 
 `npm run generate:model` creates a disposable Knex database, checks `database/taptap/sqlite/schema.d.ts` against every table, column, nullability and key, and generates persistence rows and the EF mapping under `AdapterSqlite/generated/`. `npm run build` runs that generator with `--check`; drift fails the build. These generated files are source artifacts. The design-time EF compiled model and interceptors are rebuildable `obj/` output and are not tracked.
