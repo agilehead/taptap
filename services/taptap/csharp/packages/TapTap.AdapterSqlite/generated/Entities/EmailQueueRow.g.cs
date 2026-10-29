@@ -19,4 +19,6 @@ public sealed class EmailQueueRow
     public string? LastError { get; set; }
     public required string CreatedAt { get; set; }
     public string? SentAt { get; set; }
+    public string? LeaseOwner { get; set; }
+    public long? LeaseUntil { get; set; }
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { networkInterfaces } from "node:os";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createServer } from "node:net";
@@ -212,7 +213,7 @@ for (const target of targets)
       });
       const row = database.db.prepare("SELECT * FROM email_queue").get();
       assert.equal(row.status, "sent");
-      assert.equal(row.attempts, 1);
+      assert.equal(row.attempts, 2);
       assert.match(row.last_error, /fixture rejection/);
       assert(row.sent_at);
       assert.equal(fixture.messages.length, 2);
@@ -373,6 +374,140 @@ for (const target of targets)
           "Untrusted TLS cannot deliver a message",
         );
         cases++;
+      }
+      const peerPort = await freePort();
+      const peerUrl = `http://127.0.0.1:${peerPort}`;
+      let peer;
+      const startPeer = async () => {
+        const executable = command(implementation);
+        peer = spawn(executable[0], executable.slice(1), {
+          cwd: repository,
+          env: { ...env, TAPTAP_SERVER_PORT: String(peerPort) },
+          stdio: "inherit",
+        });
+        await ready(peer, peerUrl);
+      };
+      const peerQueue = async () =>
+        (
+          await fetch(peerUrl + "/internal/cron/process-queue", {
+            method: "POST",
+            headers: { authorization: "Bearer test-cron-secret" },
+          })
+        ).json();
+      const enqueueLease = async (id) => {
+        const response = await fetch(url + "/graphql", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            query:
+              "mutation($input:SendRawEmailInput!){sendRawEmail(input:$input){success}}",
+            variables: {
+              input: {
+                recipient: { id, email: id + "@example.test", name: id },
+                subject: id,
+                bodyHtml: "html",
+                bodyText: "text",
+              },
+            },
+          }),
+        });
+        assert.equal((await response.json()).data.sendRawEmail.success, true);
+      };
+      const arrived = async (held) => {
+        let timer;
+        try {
+          await Promise.race([
+            held.arrived,
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error("Lease fixture did not reach SMTP")),
+                10000,
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+      try {
+        await startPeer();
+        await enqueueLease("overlap-first");
+        await enqueueLease("overlap-second");
+        const before = fixture.messages.length;
+        const overlap = fixture.deferNext();
+        const firstBatch = processQueue();
+        try {
+          await arrived(overlap);
+          assert.deepEqual(await peerQueue(), {
+            processed: 1,
+            sent: 1,
+            failed: 0,
+          });
+        } finally {
+          overlap.release();
+        }
+        assert.deepEqual(await firstBatch, {
+          processed: 1,
+          sent: 1,
+          failed: 0,
+        });
+        assert.equal(
+          fixture.messages.length - before,
+          2,
+          "separate processes deliver each pending item once",
+        );
+        cases++;
+        await enqueueLease("crash-recovery");
+        const interrupted = fixture.deferNext();
+        const interruptedRequest = peerQueue().catch((error) => error);
+        await arrived(interrupted);
+        const exited = once(peer, "exit");
+        peer.kill("SIGKILL");
+        await exited;
+        peer = undefined;
+        assert(
+          (await interruptedRequest) instanceof Error,
+          "the interrupted HTTP request loses its process",
+        );
+        interrupted.release();
+        const abandoned = database.db
+          .prepare(
+            "SELECT status, attempts FROM email_queue WHERE recipient_id = ?",
+          )
+          .get("crash-recovery");
+        assert.deepEqual(abandoned, { status: "sending", attempts: 1 });
+        await startPeer();
+        assert.deepEqual(
+          await peerQueue(),
+          { processed: 0, sent: 0, failed: 0 },
+          "restart respects an unexpired owner",
+        );
+        database.db
+          .prepare(
+            "UPDATE email_queue SET lease_until = ? WHERE recipient_id = ?",
+          )
+          .run(Date.now() - 1, "crash-recovery");
+        assert.deepEqual(await peerQueue(), {
+          processed: 1,
+          sent: 1,
+          failed: 0,
+        });
+        assert.deepEqual(
+          database.db
+            .prepare(
+              "SELECT status, attempts FROM email_queue WHERE recipient_id = ?",
+            )
+            .get("crash-recovery"),
+          { status: "sent", attempts: 2 },
+        );
+        assert.deepEqual(await processQueue(), {
+          processed: 0,
+          sent: 0,
+          failed: 0,
+        });
+        cases++;
+      } finally {
+        if (peer) await stop(peer);
       }
       console.info(
         `SMTP PASS ${target}/${mode}: authenticated delivery, rejection, retry, Unicode MIME, multiple recipients, reply-to and caller disconnect`,

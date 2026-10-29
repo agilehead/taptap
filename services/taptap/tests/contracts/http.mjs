@@ -273,7 +273,7 @@ export async function contracts({ url, database, mode, internalSecret }) {
       items.every(
         (value) =>
           value.status === "sent" &&
-          value.attempts === 0 &&
+          value.attempts === 1 &&
           value.sent_at !== null,
       ),
     );
