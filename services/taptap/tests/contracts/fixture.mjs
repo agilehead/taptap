@@ -2,7 +2,6 @@ import { dirname } from "node:path";
 export const modes = ["single", "production"];
 export const secret = "";
 export const internalSecret = "test-cron-secret";
-export const nodeArguments = [];
 export function environment(port, database, mode) {
   return {
     NODE_ENV: mode === "production" ? "production" : "test",

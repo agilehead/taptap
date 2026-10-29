@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach } from "mocha";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import { expect } from "chai";
 import { createTapTapClient, createNoOpTapTapClient } from "../client.js";
 import type { TapTapConfig, EmailTemplate, SendResult } from "../types.js";
@@ -11,7 +11,7 @@ function first<T>(values: readonly T[]): T {
   return value;
 }
 
-describe("TapTapClient", () => {
+void describe("TapTapClient", () => {
   let fetchCalls: FetchCall[];
   let fetchResponse: { status: number; body: unknown };
   const originalFetch = globalThis.fetch;
@@ -56,9 +56,9 @@ describe("TapTapClient", () => {
     globalThis.fetch = originalFetch;
   });
 
-  describe("createTapTapClient", () => {
-    describe("getEmailTemplate", () => {
-      it("should fetch a template by name", async () => {
+  void describe("createTapTapClient", () => {
+    void describe("getEmailTemplate", () => {
+      void it("should fetch a template by name", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { emailTemplate: sampleTemplate } },
@@ -87,7 +87,7 @@ describe("TapTapClient", () => {
         expect(body.query).to.include("emailTemplate(");
       });
 
-      it("should return null for non-existent template", async () => {
+      void it("should return null for non-existent template", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { emailTemplate: null } },
@@ -103,8 +103,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("listEmailTemplates", () => {
-      it("should list all templates", async () => {
+    void describe("listEmailTemplates", () => {
+      void it("should list all templates", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { emailTemplates: [sampleTemplate] } },
@@ -121,8 +121,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("registerEmailTemplate", () => {
-      it("should register a new template", async () => {
+    void describe("registerEmailTemplate", () => {
+      void it("should register a new template", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { registerEmailTemplate: sampleTemplate } },
@@ -150,8 +150,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("updateEmailTemplate", () => {
-      it("should update a template", async () => {
+    void describe("updateEmailTemplate", () => {
+      void it("should update a template", async () => {
         const updated = { ...sampleTemplate, subject: "Updated!" };
         fetchResponse = {
           status: 200,
@@ -176,8 +176,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("deleteEmailTemplate", () => {
-      it("should delete a template", async () => {
+    void describe("deleteEmailTemplate", () => {
+      void it("should delete a template", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { deleteEmailTemplate: true } },
@@ -198,8 +198,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("sendEmail", () => {
-      it("should send an email using a template", async () => {
+    void describe("sendEmail", () => {
+      void it("should send an email using a template", async () => {
         const sendResult: SendResult = {
           success: true,
           throttled: false,
@@ -246,7 +246,7 @@ describe("TapTapClient", () => {
         expect(body.variables.input.category).to.equal("onboarding");
       });
 
-      it("should handle throttled response", async () => {
+      void it("should handle throttled response", async () => {
         const sendResult: SendResult = {
           success: true,
           throttled: true,
@@ -273,8 +273,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("sendRawEmail", () => {
-      it("should send a raw email", async () => {
+    void describe("sendRawEmail", () => {
+      void it("should send a raw email", async () => {
         const sendResult: SendResult = {
           success: true,
           throttled: false,
@@ -312,8 +312,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("error handling", () => {
-      it("should return failure on HTTP error", async () => {
+    void describe("error handling", () => {
+      void it("should return failure on HTTP error", async () => {
         fetchResponse = { status: 500, body: "Internal Server Error" };
 
         const client = createTapTapClient(config);
@@ -325,7 +325,7 @@ describe("TapTapClient", () => {
         }
       });
 
-      it("should return failure on GraphQL error", async () => {
+      void it("should return failure on GraphQL error", async () => {
         fetchResponse = {
           status: 200,
           body: {
@@ -348,7 +348,7 @@ describe("TapTapClient", () => {
         }
       });
 
-      it("should return failure on network error", async () => {
+      void it("should return failure on network error", async () => {
         globalThis.fetch = () => {
           return Promise.reject(new Error("Connection refused"));
         };
@@ -370,8 +370,8 @@ describe("TapTapClient", () => {
       });
     });
 
-    describe("endpoint normalization", () => {
-      it("should strip trailing slash from endpoint", async () => {
+    void describe("endpoint normalization", () => {
+      void it("should strip trailing slash from endpoint", async () => {
         fetchResponse = {
           status: 200,
           body: { data: { emailTemplates: [] } },
@@ -387,8 +387,8 @@ describe("TapTapClient", () => {
     });
   });
 
-  describe("createNoOpTapTapClient", () => {
-    it("should return null for getEmailTemplate", async () => {
+  void describe("createNoOpTapTapClient", () => {
+    void it("should return null for getEmailTemplate", async () => {
       const client = createNoOpTapTapClient();
       const result = await client.getEmailTemplate("welcome");
 
@@ -398,7 +398,7 @@ describe("TapTapClient", () => {
       }
     });
 
-    it("should return empty array for listEmailTemplates", async () => {
+    void it("should return empty array for listEmailTemplates", async () => {
       const client = createNoOpTapTapClient();
       const result = await client.listEmailTemplates();
 
@@ -408,7 +408,7 @@ describe("TapTapClient", () => {
       }
     });
 
-    it("should return failure for write operations", async () => {
+    void it("should return failure for write operations", async () => {
       const client = createNoOpTapTapClient();
 
       const register = await client.registerEmailTemplate({
@@ -442,7 +442,7 @@ describe("TapTapClient", () => {
       expect(sendRaw.success).to.equal(false);
     });
 
-    it("should log warnings when logger provided", async () => {
+    void it("should log warnings when logger provided", async () => {
       const warnings: unknown[][] = [];
       const logger = {
         debug: () => undefined,

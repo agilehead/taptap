@@ -16,9 +16,8 @@ echo "=== Installing TapTap Dependencies ==="
 # Define the package order (same as build order)
 PACKAGES=(
   "taptap-logger"
-  "taptap-db"
   "taptap-test-utils"
-  "taptap-server"
+  "taptap-client"
 )
 
 # Install root deps (once)
@@ -30,7 +29,6 @@ fi
 # Loop through every package in order
 for pkg_name in "${PACKAGES[@]}"; do
   pkg="services/taptap/node/packages/$pkg_name"
-  if [[ "$pkg_name" == "taptap-server" ]]; then pkg="services/taptap/node/apps/server"; fi
   if [[ ! -d "$pkg" ]]; then
     echo "Package $pkg not found, skipping."
     continue

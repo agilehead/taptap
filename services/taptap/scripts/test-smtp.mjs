@@ -18,16 +18,13 @@ const selected = process.argv[2] ?? "all";
 assert(
   [
     "all",
-    "node",
     "csharp",
     "nativeaot",
-    "container-node",
     "container-managed",
     "container-nativeaot",
   ].includes(selected),
 );
-const targets =
-  selected === "all" ? ["node", "csharp", "nativeaot"] : [selected];
+const targets = selected === "all" ? ["csharp", "nativeaot"] : [selected];
 function mime(raw) {
   const result = spawnSync(
     "python3",
@@ -56,9 +53,7 @@ for (const target of targets)
       ? target.slice("container-".length)
       : null;
     const implementation =
-      containerVariant === "node"
-        ? "node"
-        : containerVariant === null
+      containerVariant === null
         ? target
         : containerVariant === "managed"
           ? "csharp"
@@ -230,13 +225,7 @@ for (const target of targets)
       assert.equal(message.html.trimEnd(), "<p>HTML 東京</p>");
       assert.equal(message.text.trimEnd(), "Text 東京");
       cases++;
-      const probe =
-        implementation === "node"
-          ? [
-              process.execPath,
-              "services/taptap/node/tests/smtp-probe.mjs",
-            ]
-          : [...command(implementation, "ContractProbe"), "smtp"];
+      const probe = [...command(implementation, "ContractProbe"), "smtp"];
       await run(
         [...probe, "127.0.0.1", String(fixture.port), String(mode === "tls")],
         { env },

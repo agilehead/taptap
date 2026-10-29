@@ -17,7 +17,10 @@ assert(
 const check = process.argv.includes("--check");
 const source = ts.createSourceFile(
   "schema.ts",
-  readFileSync(join(root, "services/taptap/node/packages/taptap-db/src/schema.ts"), "utf8"),
+  readFileSync(
+    join(root, "services/taptap/database/taptap/sqlite/schema.d.ts"),
+    "utf8",
+  ),
   ts.ScriptTarget.Latest,
   true,
 );
@@ -27,7 +30,7 @@ const declaration = source.statements.find(
 );
 assert(
   declaration && ts.isTypeLiteralNode(declaration.type),
-  "Expected the current Node database contract",
+  "Expected the database contract",
 );
 const pascal = (value) =>
   value
@@ -151,7 +154,7 @@ try {
     `#nullable enable\n\nusing System.Diagnostics.CodeAnalysis;\nusing Microsoft.EntityFrameworkCore;\nusing TapTap.AdapterSqlite.Entities;\n\nnamespace TapTap.AdapterSqlite;\n\npublic sealed partial class TapTapDbContext : DbContext\n{\n    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Native publishing generates the EF compiled model and query interceptors; the native contract suite exercises them.")]\n    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Native publishing generates the EF compiled model and query interceptors; the native contract suite exercises them.")]\n    public TapTapDbContext(DbContextOptions<TapTapDbContext> options) : base(options) { }\n\n${entities.join("\n")}\n\n    protected override void OnModelCreating(ModelBuilder modelBuilder)\n    {\n${configurations.join("\n")}\n    }\n}\n`,
   );
   console.info(
-    `TapTap: ${check ? "checked" : "generated"} ${entities.length} EF mappings against the Node contract and fresh Knex schema`,
+    `TapTap: ${check ? "checked" : "generated"} ${entities.length} EF mappings against the database contract and fresh Knex schema`,
   );
 } finally {
   await teardownTestDatabase(database);
